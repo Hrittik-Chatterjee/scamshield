@@ -18,8 +18,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://scamshie
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
   <meta name="description" content={description} />
-  <meta name="theme-color" content="#08080d" />
+  <meta name="theme-color" content="#ffffff" />
   <link rel="canonical" href={canonicalURL} />
   <!-- Open Graph -->
   <meta property="og:title" content={title} />
@@ -32,11 +33,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://scamshie
 <body class="bg-canvas text-primary">
 
   <!-- Navigation -->
-  <header class="sticky top-0 z-50 border-b" style="background: rgba(8,8,13,0.85); backdrop-filter: blur(16px); border-color: var(--color-border);">
+  <header class="sticky top-0 z-50 border-b" style="background: rgba(255,255,255,0.85); backdrop-filter: blur(16px); border-color: var(--color-border);">
     <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
       <!-- Logo -->
       <a href="/" class="flex items-center gap-2.5 no-underline group">
-        <div class="w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold" style="background: var(--color-danger); color: white; box-shadow: 0 0 12px rgba(230,57,70,0.4);">
+        <div class="w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold" style="background: var(--color-danger); color: white; box-shadow: 0 0 12px rgba(179,0,0,0.45);">
           S
         </div>
         <span class="font-semibold tracking-tight" style="color: var(--color-text-primary); font-size: 15px;">

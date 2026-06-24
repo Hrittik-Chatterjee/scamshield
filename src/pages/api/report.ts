@@ -1,9 +1,9 @@
 // src/pages/api/report.ts
-// Accepts fraud report submissions. In Phase 3 uses in-memory store (mock).
-// Phase 3+ will replace with real D1 inserts + R2 uploads.
+// Accepts fraud report submissions. Uses unified db utility for D1 / local fallback.
 import type { APIRoute } from 'astro';
+import { createReport } from '../../utils/db';
 
-// Pure JS base64 encoder for workerd compatibility (no node:buffer needed)
+// Pure JS base64 encoder for workerd compatibility
 function uint8ArrayToBase64(arr: Uint8Array): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   let result = '';
@@ -23,28 +23,23 @@ function uint8ArrayToBase64(arr: Uint8Array): string {
   return result;
 }
 
-// ── In-memory pending store (replaced by D1 in production) ─────────────
-// Exported so admin queue endpoint can read it in the same process.
-export const PENDING_REPORTS: PendingReport[] = [];
-
 export interface PendingReport {
   id: string;
   reporterType: 'BUYER' | 'SELLER';
-  // Seller-reported fields
   entityIdentifier: string;   // shop name / page / phone being reported
   entityType: string;         // 'Shop', 'Facebook Page', 'bKash Number', 'Buyer Number'
-  // Common fields
   incidentDate: string;
   amountLost?: number;
   complaintText: string;
-  evidenceFileName: string;   // original filename (R2 key in production)
-  evidenceDataUrl?: string;   // base64 preview (dev only — not stored in prod)
+  evidenceFileName: string;   // original filename
+  evidenceDataUrl?: string;   // base64 preview (dev only)
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
 }
 
 // ── Handler ────────────────────────────────────────────────────────────
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async (context) => {
+  const { request, locals } = context;
   try {
     const form = await request.formData();
 
@@ -75,15 +70,17 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // ── In dev: read file as base64 for admin preview ──────────────────
+    // ── Read file as base64 for local dev preview ──────────────────
     let evidenceDataUrl: string | undefined;
-    if (evidenceFile) {
+    const db = locals?.runtime?.env?.DB;
+    if (!db && evidenceFile) {
+      // Only generate base64 preview if we are NOT on Cloudflare (dev fallback)
       const buffer = await evidenceFile.arrayBuffer();
       const base64 = uint8ArrayToBase64(new Uint8Array(buffer));
       evidenceDataUrl = `data:${evidenceFile.type};base64,${base64}`;
     }
 
-    // ── Store report ───────────────────────────────────────────────────
+    // ── Create report object ───────────────────────────────────────────
     const report: PendingReport = {
       id: crypto.randomUUID(),
       reporterType,
@@ -98,7 +95,7 @@ export const POST: APIRoute = async ({ request }) => {
       createdAt: new Date().toISOString(),
     };
 
-    PENDING_REPORTS.unshift(report); // newest first
+    await createReport(report, evidenceFile, locals);
 
     return new Response(JSON.stringify({ ok: true, referenceId: report.id.slice(0, 8).toUpperCase() }), {
       status: 201,

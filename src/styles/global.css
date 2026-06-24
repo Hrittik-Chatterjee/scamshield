@@ -4,30 +4,30 @@
 /* ── Design Tokens ───────────────────────────────── */
 @theme {
   /* Colors */
-  --color-canvas:       #08080d;
-  --color-surface:      #111118;
-  --color-card:         #1a1a26;
-  --color-card-hover:   #1f1f2e;
-  --color-border:       #252533;
-  --color-border-light: #2e2e40;
+  --color-canvas:       #ffffff;
+  --color-surface:      #eeece7;
+  --color-card:         #ffffff;
+  --color-card-hover:   #f9f9fb;
+  --color-border:       #d9d9dd;
+  --color-border-light: #e5e7eb;
 
   /* Brand */
-  --color-danger:       #e63946;
-  --color-danger-dim:   #c1121f;
-  --color-danger-glow:  rgba(230, 57, 70, 0.15);
-  --color-safe:         #06d6a0;
-  --color-safe-dim:     #05a880;
-  --color-safe-glow:    rgba(6, 214, 160, 0.12);
-  --color-caution:      #ffd60a;
-  --color-caution-dim:  #e6c000;
-  --color-caution-glow: rgba(255, 214, 10, 0.12);
-  --color-accent:       #7b68ee;
-  --color-accent-dim:   #6257c4;
+  --color-danger:       #b30000;
+  --color-danger-dim:   #990000;
+  --color-danger-glow:  rgba(179, 0, 0, 0.08);
+  --color-safe:         #006654;
+  --color-safe-dim:     #004d3f;
+  --color-safe-glow:    rgba(0, 102, 84, 0.08);
+  --color-caution:      #b37400;
+  --color-caution-dim:  #805200;
+  --color-caution-glow: rgba(179, 116, 0, 0.08);
+  --color-accent:       #1863dc;
+  --color-accent-dim:   #10449a;
 
   /* Text */
-  --color-text-primary: #f0f0f8;
-  --color-text-secondary: #9898b0;
-  --color-text-muted:   #5a5a72;
+  --color-text-primary: #17171c;
+  --color-text-secondary: #616161;
+  --color-text-muted:   #93939f;
 
   /* Typography */
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -45,6 +45,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
+  color-scheme: light;
   font-family: var(--font-sans);
   background-color: var(--color-canvas);
   color: var(--color-text-primary);

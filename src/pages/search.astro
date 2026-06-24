@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import AISafetyScan from '../components/AISafetyScan.tsx';
 
 const query = Astro.url.searchParams.get('q') ?? '';
 const mode  = Astro.url.searchParams.get('mode') ?? 'buyer';
@@ -21,10 +22,10 @@ try {
 }
 
 const riskStyles = {
-  confirmed: { color: '#e63946', bg: 'rgba(230,57,70,0.08)', border: 'rgba(230,57,70,0.25)', label: 'CONFIRMED SCAM', icon: '🚫' },
-  high:      { color: '#e63946', bg: 'rgba(230,57,70,0.05)', border: 'rgba(230,57,70,0.15)', label: 'HIGH RISK',      icon: '⚠️' },
-  caution:   { color: '#ffd60a', bg: 'rgba(255,214,10,0.05)', border: 'rgba(255,214,10,0.2)',  label: 'CAUTION',        icon: '⚠️' },
-  safe:      { color: '#06d6a0', bg: 'rgba(6,214,160,0.05)', border: 'rgba(6,214,160,0.2)',   label: 'SAFE',           icon: '✅' },
+  confirmed: { color: 'var(--color-danger)', bg: 'var(--color-danger-glow)', border: 'rgba(179,0,0,0.15)', label: 'CONFIRMED SCAM', icon: '🚫' },
+  high:      { color: 'var(--color-danger)', bg: 'rgba(179,0,0,0.04)', border: 'rgba(179,0,0,0.10)', label: 'HIGH RISK',      icon: '⚠️' },
+  caution:   { color: 'var(--color-caution)', bg: 'var(--color-caution-glow)', border: 'rgba(179,116,0,0.15)',  label: 'CAUTION',        icon: '⚠️' },
+  safe:      { color: 'var(--color-safe)', bg: 'var(--color-safe-glow)', border: 'rgba(0,102,84,0.15)',   label: 'SAFE',           icon: '✅' },
 } as const;
 
 const risk = result?.entity?.risk as keyof typeof riskStyles | undefined;
@@ -140,18 +141,9 @@ const isSeller = mode === 'seller';
           </p>
         </div>
 
-        <!-- AI Scan Placeholder (Phase 4 will make this live) -->
-        <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px;">
-          <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 20px;">AI Safety Scan</h2>
-          <div style="display: flex; flex-direction: column; gap: 14px;">
-            {['Domain Age Check', 'Google Safe Browsing', 'Web Complaint Search', 'Review Pattern Analysis'].map(check => (
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-border-light); flex-shrink: 0;"></div>
-                <span style="font-size: 13px; color: var(--color-text-muted);">{check}</span>
-                <span style="margin-left: auto; font-size: 11px; color: var(--color-text-muted); background: var(--color-surface); padding: 2px 8px; border-radius: 4px;">Coming Phase 4</span>
-              </div>
-            ))}
-          </div>
+        <!-- AI Scan Details (Phase 4 Live Scan) -->
+        <div style="margin-bottom: 24px;">
+          <AISafetyScan client:load query={query} mode={mode as 'buyer' | 'seller'} />
         </div>
 
         <!-- Search Again + Report -->

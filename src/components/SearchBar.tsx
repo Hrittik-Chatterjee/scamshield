@@ -97,9 +97,9 @@ export default function SearchBar() {
           transition: 'all 0.25s',
           boxShadow: focused
             ? mode === 'buyer'
-              ? '0 0 0 4px rgba(230,57,70,0.1), 0 8px 32px rgba(0,0,0,0.4)'
-              : '0 0 0 4px rgba(123,104,238,0.1), 0 8px 32px rgba(0,0,0,0.4)'
-            : '0 4px 24px rgba(0,0,0,0.3)',
+              ? '0 0 0 4px rgba(179,0,0,0.08), 0 8px 32px rgba(25,25,33,0.08)'
+              : '0 0 0 4px rgba(24,99,220,0.08), 0 8px 32px rgba(25,25,33,0.08)'
+            : '0 4px 24px rgba(25,25,33,0.05)',
         }}>
           {/* Search Icon */}
           <span style={{ paddingLeft: '20px', color: 'var(--color-text-muted)', flexShrink: 0, fontSize: '18px' }}>

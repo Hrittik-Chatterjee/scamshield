@@ -53,17 +53,17 @@ It also solves the reverse: **A seller has no way to check if a buyer's phone nu
 ### Color Palette
 | Token | Value | Use |
 |---|---|---|
-| `--color-canvas` | `#08080d` | Page background |
-| `--color-surface` | `#111118` | Section backgrounds |
-| `--color-card` | `#1a1a26` | Card backgrounds |
-| `--color-border` | `#252533` | Default borders |
-| `--color-danger` | `#e63946` | Confirmed scam, high risk, primary CTA |
-| `--color-safe` | `#06d6a0` | Safe / no reports found |
-| `--color-caution` | `#ffd60a` | Caution / warning |
-| `--color-accent` | `#7b68ee` | Seller/business mode, secondary actions |
-| `--color-text-primary` | `#f0f0f8` | Main text |
-| `--color-text-secondary` | `#9898b0` | Subtext |
-| `--color-text-muted` | `#5a5a72` | Metadata, labels |
+| `--color-canvas` | `#ffffff` | Page background |
+| `--color-surface` | `#eeece7` | Section backgrounds / stone accents |
+| `--color-card` | `#ffffff` | Card backgrounds |
+| `--color-border` | `#d9d9dd` | Default borders |
+| `--color-danger` | `#b30000` | Confirmed scam, high risk, primary CTA |
+| `--color-safe` | `#006654` | Safe / no reports found |
+| `--color-caution` | `#b37400` | Caution / warning |
+| `--color-accent` | `#1863dc` | Seller/business mode, secondary actions |
+| `--color-text-primary` | `#17171c` | Main text |
+| `--color-text-secondary` | `#616161` | Subtext |
+| `--color-text-muted` | `#93939f` | Metadata, labels |
 
 ### Fonts
 - **Body/UI:** `Inter` (Google Fonts)
@@ -170,20 +170,18 @@ c:\projects\ScamShield\
 
 ---
 
-### ⬜ Phase 4 — AI Fraud Indicator Analyzer — NOT STARTED
-**Goal:** When a search finds nothing in the database, call external APIs and Groq/Gemini to generate a risk assessment.
+### ✅ Phase 4 — AI Fraud Indicator Analyzer — COMPLETE
+- [x] Wire up the "AI Safety Scan" section on the not-found results page (created `AISafetyScan.tsx` React island)
+- [x] Call WHOIS/RDAP API → extract domain age → flag if under 90 days
+- [x] Call Google Safe Browsing API → flag if URL is on phishing/malware list
+- [x] Call URLScan.io API → get safety verdict
+- [x] Call Bing Search API → search `"{query} scam complaint Bangladesh"` → collect top snippets
+- [x] Send signals to Groq/Gemini fallback inference chain in JSON mode
+- [x] Cache result in D1/mock `ai_cache` table for 24 hours (preventing redundant AI queries)
+- [x] Implemented dynamic environment bindings via a unified `getEnv` module compatible with Astro v7 Cloudflare Worker virtual environments.
+- [x] Implemented unified dual-mode storage wrapper `db.ts` to seamlessly swap between production Cloudflare D1/R2 and development `globalThis` mock storage.
 
-**What to build:**
-- Wire up the "AI Safety Scan" section on the not-found results page (currently shows "Coming Phase 4")
-- Call WHOIS API → extract domain age → flag if under 90 days
-- Call Google Safe Browsing API → flag if URL is on phishing list
-- Call URLScan.io API → get safety verdict
-- Call Bing Search API → search `"{query} scam complaint Bangladesh"` → collect top 5 snippets
-- Send all signals to Groq: prompt it to classify risk and explain flags
-- Cache result in D1 `ai_cache` table for 24 hours (same entity won't re-trigger AI)
-- Fallback chain: Groq → Gemini → Workers AI
-
-**API keys needed:**
+**API keys needed (bound in Cloudflare Pages as Secrets or locally in `.dev.vars` / `.env`):**
 - `GROQ_API_KEY` — from groq.com (free)
 - `GEMINI_API_KEY` — from aistudio.google.com (free)
 - `BING_SEARCH_KEY` — from Azure portal, F0 tier (free)

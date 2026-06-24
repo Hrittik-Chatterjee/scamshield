@@ -1,11 +1,12 @@
 // src/pages/api/admin/queue.ts
 // Returns pending reports for the admin dashboard. Protected by ADMIN_SECRET_KEY.
 import type { APIRoute } from 'astro';
-import { PENDING_REPORTS } from '../report';
+import { getPendingQueue } from '../../../utils/db';
 
 const ADMIN_KEY = import.meta.env.ADMIN_SECRET_KEY ?? 'dev-admin-key-change-in-production';
 
-export const GET: APIRoute = async ({ request }) => {
+export const GET: APIRoute = async (context) => {
+  const { request, locals } = context;
   // Auth check — accept key via Authorization header or ?key= param
   const url    = new URL(request.url);
   const header = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -19,10 +20,17 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  const status = url.searchParams.get('status') ?? 'PENDING';
-  const reports = PENDING_REPORTS.filter(r => r.status === status);
-
-  return new Response(JSON.stringify({ ok: true, reports, total: reports.length }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  const status = (url.searchParams.get('status') ?? 'PENDING') as 'PENDING' | 'APPROVED' | 'REJECTED';
+  try {
+    const queueData = await getPendingQueue(status, locals);
+    return new Response(JSON.stringify({ ok: true, reports: queueData.reports, total: queueData.total }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error('[api/admin/queue] Queue fetch error:', err);
+    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 };
