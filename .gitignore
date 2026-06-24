@@ -3,6 +3,10 @@ dist/
 
 # generated types
 .astro/
+.agents/
+.claude/
+.kilocode/
+skills/
 
 # dependencies
 node_modules/

@@ -1,0 +1,59 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ReportForm from '../components/ReportForm.tsx';
+
+const entity = Astro.url.searchParams.get('entity') ?? '';
+const mode   = Astro.url.searchParams.get('mode') ?? 'buyer';
+---
+
+<Layout
+  title="Report Fraud — ScamShield BD"
+  description="Submit a fraud report on ScamShield BD. Report scam sellers, fake shops, or bad-faith buyers. Evidence required to prevent false reports."
+>
+
+  <div style="max-width: 680px; margin: 0 auto; padding: 48px 16px;">
+
+    <!-- Page Header -->
+    <div style="text-align: center; margin-bottom: 40px;">
+      <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.2); border-radius: 9999px; padding: 6px 16px; margin-bottom: 20px;">
+        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--color-danger);"></span>
+        <span style="font-size: 12px; color: var(--color-danger); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;">Report Fraud</span>
+      </div>
+      <h1 style="font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 700; color: var(--color-text-primary); margin: 0 0 12px; line-height: 1.2; letter-spacing: -0.02em;">
+        Help Protect the Community
+      </h1>
+      <p style="font-size: 15px; color: var(--color-text-secondary); max-width: 480px; margin: 0 auto; line-height: 1.6;">
+        Every verified report you submit makes Bangladesh's online marketplace safer for thousands of shoppers and honest sellers.
+      </p>
+    </div>
+
+    <!-- Trust Indicators -->
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 32px;">
+      {[
+        { icon: '🔒', label: 'Evidence Required', desc: 'Screenshots prevent fake reports' },
+        { icon: '👁️', label: 'Admin Reviewed', desc: 'Every report is manually verified' },
+        { icon: '🌐', label: 'Public Record', desc: 'Approved reports protect everyone' },
+      ].map(item => (
+        <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px; text-align: center;">
+          <div style="font-size: 1.2rem; margin-bottom: 6px;">{item.icon}</div>
+          <div style="font-size: 12px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 3px;">{item.label}</div>
+          <div style="font-size: 11px; color: var(--color-text-muted);">{item.desc}</div>
+        </div>
+      ))}
+    </div>
+
+    <!-- Multi-Step Form (React Island) -->
+    <ReportForm
+      client:load
+      prefillEntity={entity}
+      prefillMode={mode}
+    />
+
+    <!-- Back Link -->
+    <div style="margin-top: 24px; text-align: center;">
+      <a href="/" style="font-size: 13px; color: var(--color-text-muted); text-decoration: none;">← Back to Search</a>
+    </div>
+
+  </div>
+
+</Layout>

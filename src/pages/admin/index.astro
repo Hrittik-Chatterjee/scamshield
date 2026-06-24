@@ -1,0 +1,206 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const ADMIN_KEY = import.meta.env.ADMIN_SECRET_KEY ?? 'dev-admin-key-change-in-production';
+
+// Auth check via ?key= query param
+const providedKey = Astro.url.searchParams.get('key') ?? '';
+const authed = providedKey === ADMIN_KEY;
+
+// If not authed, show login prompt (no redirect — just show the form)
+---
+
+<Layout title="Admin Dashboard — ScamShield BD">
+
+  {!authed ? (
+    <!-- Login Gate -->
+    <div style="max-width: 420px; margin: 80px auto; padding: 0 16px;">
+      <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 40px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <div style="width: 48px; height: 48px; background: var(--color-danger); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 20px; margin: 0 auto 16px; box-shadow: 0 0 20px rgba(230,57,70,0.3);">🔐</div>
+          <h1 style="font-size: 1.3rem; font-weight: 700; color: var(--color-text-primary); margin: 0 0 6px;">Admin Access</h1>
+          <p style="font-size: 13px; color: var(--color-text-muted); margin: 0;">ScamShield BD — Review Dashboard</p>
+        </div>
+        <form method="get" action="/admin">
+          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Admin Key</label>
+          <input
+            id="admin-key-input"
+            type="password"
+            name="key"
+            placeholder="Enter admin secret key"
+            style="width: 100%; background: var(--color-surface); border: 1.5px solid var(--color-border); border-radius: var(--radius-md); padding: 12px 14px; font-size: 14px; color: var(--color-text-primary); font-family: var(--font-mono); outline: none; box-sizing: border-box; margin-bottom: 16px;"
+          />
+          <button
+            type="submit"
+            id="admin-login-btn"
+            style="width: 100%; padding: 13px; background: var(--color-danger); color: white; border: none; border-radius: var(--radius-pill); font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); box-shadow: 0 4px 16px rgba(230,57,70,0.3);"
+          >
+            Access Dashboard →
+          </button>
+        </form>
+        {providedKey && !authed && (
+          <p style="margin-top: 16px; text-align: center; font-size: 13px; color: var(--color-danger);">⚠ Incorrect key</p>
+        )}
+      </div>
+    </div>
+  ) : (
+    <!-- Admin Dashboard -->
+    <div style="max-width: 960px; margin: 0 auto; padding: 40px 16px;" id="admin-dashboard">
+
+      <!-- Header -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--color-danger); text-transform: uppercase; margin-bottom: 6px;">Admin Dashboard</div>
+          <h1 style="font-size: 1.6rem; font-weight: 700; color: var(--color-text-primary); margin: 0;">Report Review Queue</h1>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button id="filter-pending" onclick="filterReports('PENDING')" style="padding: 8px 16px; background: var(--color-danger); color: white; border: none; border-radius: var(--radius-pill); font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-sans);">Pending</button>
+          <button id="filter-approved" onclick="filterReports('APPROVED')" style="padding: 8px 16px; background: var(--color-surface); color: var(--color-text-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-pill); font-size: 13px; cursor: pointer; font-family: var(--font-sans);">Approved</button>
+          <button id="filter-rejected" onclick="filterReports('REJECTED')" style="padding: 8px 16px; background: var(--color-surface); color: var(--color-text-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-pill); font-size: 13px; cursor: pointer; font-family: var(--font-sans);">Rejected</button>
+        </div>
+      </div>
+
+      <!-- Stats Row -->
+      <div id="admin-stats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px;">
+        <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 20px; text-align: center;">
+          <div id="stat-pending" style="font-size: 2rem; font-weight: 700; color: var(--color-caution); font-family: var(--font-mono);">—</div>
+          <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;">Pending</div>
+        </div>
+        <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 20px; text-align: center;">
+          <div id="stat-approved" style="font-size: 2rem; font-weight: 700; color: var(--color-safe); font-family: var(--font-mono);">—</div>
+          <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;">Approved</div>
+        </div>
+        <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 20px; text-align: center;">
+          <div id="stat-rejected" style="font-size: 2rem; font-weight: 700; color: var(--color-text-muted); font-family: var(--font-mono);">—</div>
+          <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;">Rejected</div>
+        </div>
+      </div>
+
+      <!-- Report Cards Container -->
+      <div id="reports-container">
+        <div style="text-align: center; padding: 48px; color: var(--color-text-muted);">Loading reports…</div>
+      </div>
+
+    </div>
+  )}
+
+</Layout>
+
+{authed && (
+  <script define:vars={{ adminKey: providedKey }}>
+    let currentFilter = 'PENDING';
+
+    async function fetchStats() {
+      for (const status of ['PENDING', 'APPROVED', 'REJECTED']) {
+        try {
+          const res = await fetch(`/api/admin/queue?key=${adminKey}&status=${status}`);
+          const data = await res.json();
+          const el = document.getElementById(`stat-${status.toLowerCase()}`);
+          if (el) el.textContent = data.total ?? 0;
+        } catch {}
+      }
+    }
+
+    async function filterReports(status) {
+      currentFilter = status;
+      ['pending','approved','rejected'].forEach(s => {
+        const btn = document.getElementById(`filter-${s}`);
+        if (btn) {
+          btn.style.background = s.toUpperCase() === status ? 'var(--color-danger)' : 'var(--color-surface)';
+          btn.style.color = s.toUpperCase() === status ? 'white' : 'var(--color-text-secondary)';
+          btn.style.border = s.toUpperCase() === status ? 'none' : '1px solid var(--color-border)';
+        }
+      });
+      await loadReports(status);
+    }
+
+    async function loadReports(status = 'PENDING') {
+      const container = document.getElementById('reports-container');
+      if (!container) return;
+      container.innerHTML = '<div style="text-align: center; padding: 48px; color: var(--color-text-muted);">Loading…</div>';
+      try {
+        const res = await fetch(`/api/admin/queue?key=${adminKey}&status=${status}`);
+        const data = await res.json();
+        if (!data.reports || data.reports.length === 0) {
+          container.innerHTML = `<div style="text-align: center; padding: 48px; color: var(--color-text-muted);">No ${status.toLowerCase()} reports.</div>`;
+          return;
+        }
+        container.innerHTML = data.reports.map(r => renderCard(r)).join('');
+      } catch (e) {
+        container.innerHTML = '<div style="text-align: center; padding: 48px; color: var(--color-danger);">Failed to load reports.</div>';
+      }
+    }
+
+    function renderCard(r) {
+      const typeColor = r.reporterType === 'BUYER' ? 'var(--color-danger)' : 'var(--color-accent)';
+      const typeBg   = r.reporterType === 'BUYER' ? 'rgba(230,57,70,0.08)' : 'rgba(123,104,238,0.08)';
+      const typeBorder = r.reporterType === 'BUYER' ? 'rgba(230,57,70,0.2)' : 'rgba(123,104,238,0.2)';
+      const typeLabel  = r.reporterType === 'BUYER' ? '🛒 Buyer Report' : '🏪 Seller Report';
+      const date = new Date(r.createdAt).toLocaleString('en-BD', { dateStyle: 'medium', timeStyle: 'short' });
+
+      const imgHtml = r.evidenceDataUrl
+        ? `<img src="${r.evidenceDataUrl}" alt="Evidence" style="max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--color-border);display:block;margin-top:12px;cursor:pointer;" onclick="window.open('${r.evidenceDataUrl}','_blank')" title="Click to view full size" />`
+        : `<div style="padding:16px;background:var(--color-surface);border-radius:8px;font-size:13px;color:var(--color-text-muted);margin-top:12px;">📎 ${r.evidenceFileName}</div>`;
+
+      const actionBtns = r.status === 'PENDING' ? `
+        <button onclick="reviewReport('${r.id}','approve')" style="padding:10px 20px;background:var(--color-safe);color:white;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:sans-serif;">✓ Approve</button>
+        <button onclick="reviewReport('${r.id}','reject')" style="padding:10px 20px;background:transparent;color:var(--color-danger);border:1px solid rgba(230,57,70,0.4);border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:sans-serif;">✗ Reject</button>
+      ` : `<span style="font-size:13px;font-weight:600;color:${r.status==='APPROVED'?'var(--color-safe)':'var(--color-text-muted)'};">${r.status==='APPROVED'?'✓ Approved':'✗ Rejected'}</span>`;
+
+      return `
+        <div id="card-${r.id}" style="background:var(--color-card);border:1px solid var(--color-border);border-radius:16px;padding:24px;margin-bottom:16px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span style="font-size:10px;font-weight:700;letter-spacing:0.06em;padding:3px 10px;border-radius:4px;background:${typeBg};color:${typeColor};border:1px solid ${typeBorder};">${typeLabel}</span>
+              <span style="font-size:11px;color:var(--color-text-muted);">#${r.id.slice(0,8).toUpperCase()}</span>
+              <span style="font-size:11px;color:var(--color-text-muted);">${date}</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">${actionBtns}</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">ENTITY</div><div style="font-family:monospace;font-size:14px;color:var(--color-text-primary);font-weight:600;">${r.entityIdentifier}</div></div>
+            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">TYPE</div><div style="font-size:13px;color:var(--color-text-secondary);">${r.entityType}</div></div>
+            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">INCIDENT DATE</div><div style="font-size:13px;color:var(--color-text-secondary);">${r.incidentDate}</div></div>
+            ${r.amountLost ? `<div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">AMOUNT LOST</div><div style="font-size:13px;color:var(--color-danger);font-weight:600;">৳${r.amountLost.toLocaleString()}</div></div>` : ''}
+          </div>
+          <div style="background:var(--color-surface);border-radius:8px;padding:14px;margin-bottom:12px;">
+            <div style="font-size:11px;color:var(--color-text-muted);margin-bottom:6px;">COMPLAINT</div>
+            <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;">${r.complaintText}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--color-text-muted);margin-bottom:4px;">EVIDENCE</div>
+            ${imgHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    async function reviewReport(reportId, action) {
+      const card = document.getElementById(`card-${reportId}`);
+      if (card) card.style.opacity = '0.5';
+      try {
+        const res = await fetch('/api/admin/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: adminKey, reportId, action }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          await fetchStats();
+          await loadReports(currentFilter);
+        }
+      } catch (e) {
+        if (card) card.style.opacity = '1';
+        alert('Failed to update report. Please try again.');
+      }
+    }
+
+    // Expose functions globally for HTML onclick handlers
+    window.reviewReport = reviewReport;
+    window.filterReports = filterReports;
+
+    // Init
+    fetchStats();
+    loadReports('PENDING');
+  </script>
+)}

@@ -1,23 +1,88 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'ScamShield BD — Verify Before You Pay',
+  description = 'Bangladesh\'s first AI-powered scam verification platform. Instantly check if a Facebook shop, phone number, or online store is a known fraudster before sending money.',
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://scamshield.pages.dev');
+---
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
-</html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content={description} />
+  <meta name="theme-color" content="#08080d" />
+  <link rel="canonical" href={canonicalURL} />
+  <!-- Open Graph -->
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:type" content="website" />
+  <!-- Favicon placeholder -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>{title}</title>
+</head>
+<body class="bg-canvas text-primary">
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
-</style>
+  <!-- Navigation -->
+  <header class="sticky top-0 z-50 border-b" style="background: rgba(8,8,13,0.85); backdrop-filter: blur(16px); border-color: var(--color-border);">
+    <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-2.5 no-underline group">
+        <div class="w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold" style="background: var(--color-danger); color: white; box-shadow: 0 0 12px rgba(230,57,70,0.4);">
+          S
+        </div>
+        <span class="font-semibold tracking-tight" style="color: var(--color-text-primary); font-size: 15px;">
+          Scam<span style="color: var(--color-danger);">Shield</span>
+          <span class="text-xs font-mono ml-1 px-1 rounded" style="color: var(--color-text-muted); background: var(--color-surface); font-size: 10px; letter-spacing: 0.05em;">BD</span>
+        </span>
+      </a>
+
+      <!-- Nav Links -->
+      <div class="hidden sm:flex items-center gap-6">
+        <a href="/" class="text-sm transition-colors" style="color: var(--color-text-secondary);" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">Search</a>
+        <a href="/report" class="text-sm transition-colors" style="color: var(--color-text-secondary);" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">Report Fraud</a>
+        <a href="/about" class="text-sm transition-colors" style="color: var(--color-text-secondary);" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">About</a>
+      </div>
+
+      <!-- CTA -->
+      <a href="/report" class="text-xs font-medium px-3 py-1.5 rounded-full transition-all" style="background: var(--color-danger); color: white; text-decoration: none;" onmouseover="this.style.background='var(--color-danger-dim)'" onmouseout="this.style.background='var(--color-danger)'">
+        + Report Scam
+      </a>
+    </nav>
+  </header>
+
+  <!-- Page Content -->
+  <main>
+    <slot />
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-24 border-t" style="border-color: var(--color-border);">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold" style="color: var(--color-text-primary);">Scam<span style="color: var(--color-danger);">Shield</span> BD</span>
+          <span class="text-xs" style="color: var(--color-text-muted);">— Free, forever. Protecting Bangladeshi shoppers.</span>
+        </div>
+        <div class="flex items-center gap-5">
+          <a href="/about" class="text-xs" style="color: var(--color-text-muted);">About</a>
+          <a href="/report" class="text-xs" style="color: var(--color-text-muted);">Report</a>
+          <a href="/privacy" class="text-xs" style="color: var(--color-text-muted);">Privacy</a>
+        </div>
+      </div>
+      <p class="mt-6 text-xs text-center" style="color: var(--color-text-muted);">
+        ScamShield BD aggregates community reports and AI analysis for informational purposes only. Always exercise independent judgment.
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>

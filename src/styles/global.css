@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* ── Design Tokens ───────────────────────────────── */
+@theme {
+  /* Colors */
+  --color-canvas:       #08080d;
+  --color-surface:      #111118;
+  --color-card:         #1a1a26;
+  --color-card-hover:   #1f1f2e;
+  --color-border:       #252533;
+  --color-border-light: #2e2e40;
+
+  /* Brand */
+  --color-danger:       #e63946;
+  --color-danger-dim:   #c1121f;
+  --color-danger-glow:  rgba(230, 57, 70, 0.15);
+  --color-safe:         #06d6a0;
+  --color-safe-dim:     #05a880;
+  --color-safe-glow:    rgba(6, 214, 160, 0.12);
+  --color-caution:      #ffd60a;
+  --color-caution-dim:  #e6c000;
+  --color-caution-glow: rgba(255, 214, 10, 0.12);
+  --color-accent:       #7b68ee;
+  --color-accent-dim:   #6257c4;
+
+  /* Text */
+  --color-text-primary: #f0f0f8;
+  --color-text-secondary: #9898b0;
+  --color-text-muted:   #5a5a72;
+
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+}
+
+/* ── Base Reset ──────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+body { margin: 0; min-height: 100vh; }
+
+/* ── Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-canvas); }
+::-webkit-scrollbar-thumb { background: var(--color-border-light); border-radius: 3px; }
+
+/* ── Custom Utilities ────────────────────────────── */
+@utility bg-canvas        { background-color: var(--color-canvas); }
+@utility bg-surface       { background-color: var(--color-surface); }
+@utility bg-card          { background-color: var(--color-card); }
+@utility text-primary     { color: var(--color-text-primary); }
+@utility text-secondary   { color: var(--color-text-secondary); }
+@utility text-muted       { color: var(--color-text-muted); }
+@utility text-danger      { color: var(--color-danger); }
+@utility text-safe        { color: var(--color-safe); }
+@utility text-caution     { color: var(--color-caution); }
+@utility border-default   { border-color: var(--color-border); }
+@utility font-mono        { font-family: var(--font-mono); }
+
+/* ── Noise Texture Overlay ───────────────────────── */
+@utility noise-overlay {
+  position: relative;
+}
+
+/* ── Glow Effects ────────────────────────────────── */
+@utility glow-danger {
+  box-shadow: 0 0 0 1px rgba(230,57,70,0.3), 0 4px 24px rgba(230,57,70,0.12);
+}
+@utility glow-safe {
+  box-shadow: 0 0 0 1px rgba(6,214,160,0.3), 0 4px 24px rgba(6,214,160,0.10);
+}
+@utility glow-caution {
+  box-shadow: 0 0 0 1px rgba(255,214,10,0.3), 0 4px 24px rgba(255,214,10,0.10);
+}
+
+/* ── Animations ──────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(230,57,70,0.4); }
+  70%  { box-shadow: 0 0 0 12px rgba(230,57,70,0); }
+  100% { box-shadow: 0 0 0 0 rgba(230,57,70,0); }
+}
+@keyframes scan-line {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(400%); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@utility animate-fade-up { animation: fade-up 0.4s ease both; }

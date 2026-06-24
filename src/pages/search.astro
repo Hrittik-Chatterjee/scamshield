@@ -1,0 +1,171 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const query = Astro.url.searchParams.get('q') ?? '';
+const mode  = Astro.url.searchParams.get('mode') ?? 'buyer';
+
+if (!query) return Astro.redirect('/');
+
+// Fetch from our API
+let result: any = null;
+let error = false;
+
+try {
+  const apiUrl = new URL('/api/search', Astro.url.origin);
+  apiUrl.searchParams.set('q', query);
+  apiUrl.searchParams.set('mode', mode);
+  const res = await fetch(apiUrl.toString());
+  result = await res.json();
+} catch (e) {
+  error = true;
+}
+
+const riskStyles = {
+  confirmed: { color: '#e63946', bg: 'rgba(230,57,70,0.08)', border: 'rgba(230,57,70,0.25)', label: 'CONFIRMED SCAM', icon: '🚫' },
+  high:      { color: '#e63946', bg: 'rgba(230,57,70,0.05)', border: 'rgba(230,57,70,0.15)', label: 'HIGH RISK',      icon: '⚠️' },
+  caution:   { color: '#ffd60a', bg: 'rgba(255,214,10,0.05)', border: 'rgba(255,214,10,0.2)',  label: 'CAUTION',        icon: '⚠️' },
+  safe:      { color: '#06d6a0', bg: 'rgba(6,214,160,0.05)', border: 'rgba(6,214,160,0.2)',   label: 'SAFE',           icon: '✅' },
+} as const;
+
+const risk = result?.entity?.risk as keyof typeof riskStyles | undefined;
+const style = risk ? riskStyles[risk] : null;
+const isSeller = mode === 'seller';
+---
+
+<Layout
+  title={result?.found ? `${result.entity.name} — ScamShield BD` : `"${query}" — Not Found — ScamShield BD`}
+  description={result?.found ? `ScamShield BD: ${result.entity.name} has ${result.entity.complaintCount} fraud reports. Risk level: ${result.entity.risk}.` : `No fraud reports found for "${query}" on ScamShield BD.`}
+>
+
+  <div style="max-width: 800px; margin: 0 auto; padding: 40px 16px;">
+
+    <!-- Breadcrumb -->
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 32px; font-size: 13px; color: var(--color-text-muted);">
+      <a href="/" style="color: var(--color-text-muted); text-decoration: none;" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-muted)'">Home</a>
+      <span>›</span>
+      <span>{isSeller ? 'Buyer Check' : 'Shop Check'}</span>
+      <span>›</span>
+      <span style="color: var(--color-text-secondary); font-family: var(--font-mono);">{query}</span>
+    </div>
+
+    {error && (
+      <div style="background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.2); border-radius: var(--radius-lg); padding: 24px; text-align: center;">
+        <p style="color: var(--color-danger); font-weight: 500; margin: 0;">Search unavailable. Please try again.</p>
+      </div>
+    )}
+
+    {!error && result?.found && style && (
+      <div>
+        <!-- Risk Header Card -->
+        <div style={`background: ${style.bg}; border: 1px solid ${style.border}; border-radius: var(--radius-xl); padding: 32px; margin-bottom: 24px;`}>
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <div style={`font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: ${style.color}; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;`}>
+                <span style={`display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${style.color}; ${risk === 'confirmed' ? 'animation: pulse-ring 2s infinite;' : ''}`}></span>
+                {style.label}
+              </div>
+              <h1 style="font-size: clamp(1.3rem, 3vw, 1.8rem); font-weight: 700; color: var(--color-text-primary); margin: 0 0 8px; font-family: var(--font-mono);">
+                {result.entity.name}
+              </h1>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                <span style="font-size: 12px; color: var(--color-text-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-pill); padding: 3px 10px;">{result.entity.type}</span>
+                <span style="font-size: 12px; color: var(--color-text-muted);">First seen {result.entity.firstSeen}</span>
+              </div>
+            </div>
+            <div style="text-align: right; flex-shrink: 0;">
+              <div style={`font-size: 3rem; font-weight: 800; color: ${style.color}; font-family: var(--font-mono); line-height: 1;`}>{result.entity.complaintCount}</div>
+              <div style="font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">reports</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Fraud Flags -->
+        {result.entity.aiFlags?.length > 0 && (
+          <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px;">
+            <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 16px;">AI Fraud Indicators Detected</h2>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              {result.entity.aiFlags.map((flag: any) => (
+                <div style="display: flex; gap: 12px; align-items: flex-start;">
+                  <span style="font-size: 16px; flex-shrink: 0; margin-top: 2px;">{flag.icon}</span>
+                  <div>
+                    <div style="font-size: 14px; font-weight: 600; color: var(--color-danger); margin-bottom: 2px;">{flag.label}</div>
+                    <div style="font-size: 13px; color: var(--color-text-secondary); line-height: 1.5;">{flag.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <!-- Complaint Reports -->
+        <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 24px;">
+          <div style="padding: 20px 24px; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between;">
+            <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin: 0;">Complaint Reports</h2>
+            <span style="font-size: 13px; color: var(--color-text-muted);">{result.entity.reports.length} shown</span>
+          </div>
+          <div>
+            {result.entity.reports.map((report: any, i: number) => (
+              <div style={`padding: 20px 24px; ${i < result.entity.reports.length - 1 ? 'border-bottom: 1px solid var(--color-border);' : ''}`}>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                  <span style="font-size: 11px; color: var(--color-text-muted); font-family: var(--font-mono);">{report.date}</span>
+                  <span style={`font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; ${report.source === 'crowdsourced' ? 'background: rgba(6,214,160,0.08); color: var(--color-safe); border: 1px solid rgba(6,214,160,0.2);' : 'background: rgba(123,104,238,0.08); color: var(--color-accent); border: 1px solid rgba(123,104,238,0.2);'}`}>
+                    {report.source === 'crowdsourced' ? '✓ Verified Report' : 'Community Post'}
+                  </span>
+                </div>
+                <p style="margin: 0; font-size: 14px; color: var(--color-text-primary); line-height: 1.6;">{report.summary}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Report CTA -->
+        <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+          <p style="margin: 0; font-size: 14px; color: var(--color-text-secondary);">Were you also a victim? Add your report to help others.</p>
+          <a href={`/report?entity=${encodeURIComponent(query)}&mode=${mode}`} style="font-size: 13px; font-weight: 600; color: white; background: var(--color-danger); padding: 10px 20px; border-radius: var(--radius-pill); text-decoration: none; white-space: nowrap; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            + Submit My Report
+          </a>
+        </div>
+      </div>
+    )}
+
+    {!error && !result?.found && (
+      <div>
+        <!-- Not Found State -->
+        <div style="background: rgba(6,214,160,0.05); border: 1px solid rgba(6,214,160,0.15); border-radius: var(--radius-xl); padding: 40px 32px; text-align: center; margin-bottom: 24px;">
+          <div style="font-size: 3rem; margin-bottom: 16px;">✅</div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--color-safe); text-transform: uppercase; margin-bottom: 12px;">NO REPORTS FOUND</div>
+          <h1 style="font-size: 1.4rem; font-weight: 700; color: var(--color-text-primary); margin: 0 0 12px; font-family: var(--font-mono);">"{query}"</h1>
+          <p style="font-size: 14px; color: var(--color-text-secondary); max-width: 480px; margin: 0 auto; line-height: 1.6;">
+            No community complaints found in our database. This is a good sign — but it doesn't guarantee safety. Our AI is scanning the web for signals…
+          </p>
+        </div>
+
+        <!-- AI Scan Placeholder (Phase 4 will make this live) -->
+        <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px;">
+          <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 20px;">AI Safety Scan</h2>
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            {['Domain Age Check', 'Google Safe Browsing', 'Web Complaint Search', 'Review Pattern Analysis'].map(check => (
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-border-light); flex-shrink: 0;"></div>
+                <span style="font-size: 13px; color: var(--color-text-muted);">{check}</span>
+                <span style="margin-left: auto; font-size: 11px; color: var(--color-text-muted); background: var(--color-surface); padding: 2px 8px; border-radius: 4px;">Coming Phase 4</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Search Again + Report -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <a href="/" style="display: block; text-align: center; padding: 14px; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; color: var(--color-text-secondary); text-decoration: none; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--color-border-light)'; this.style.color='var(--color-text-primary)'" onmouseout="this.style.borderColor='var(--color-border)'; this.style.color='var(--color-text-secondary)'">← Search Again</a>
+          <a href={`/report?entity=${encodeURIComponent(query)}&mode=${mode}`} style="display: block; text-align: center; padding: 14px; background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.2); border-radius: var(--radius-lg); font-size: 14px; font-weight: 600; color: var(--color-danger); text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='rgba(230,57,70,0.12)'" onmouseout="this.style.background='rgba(230,57,70,0.08)'">Been Scammed? Report →</a>
+        </div>
+      </div>
+    )}
+
+    <!-- Back to search -->
+    <div style="margin-top: 32px; text-align: center;">
+      <a href="/" style="font-size: 13px; color: var(--color-text-muted); text-decoration: none;" onmouseover="this.style.color='var(--color-text-secondary)'" onmouseout="this.style.color='var(--color-text-muted)'">← Back to ScamShield</a>
+    </div>
+  </div>
+
+</Layout>
