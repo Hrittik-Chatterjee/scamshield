@@ -63,8 +63,7 @@ export default function ReportForm({ prefillEntity = '', prefillMode = 'buyer' }
       const data = await res.json() as { ok: boolean; errors?: string[]; referenceId?: string };
 
       if (!data.ok) { setErrors(data.errors ?? ['Unknown error']); return; }
-      setReferenceId(data.referenceId ?? '');
-      setStep('submitted');
+      window.location.href = `/report-success?ref=${data.referenceId ?? ''}`;
     } catch {
       setErrors(['Network error. Please try again.']);
     } finally {

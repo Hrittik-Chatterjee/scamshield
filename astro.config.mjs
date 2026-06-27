@@ -9,7 +9,15 @@ export default defineConfig({
   output: 'server',
   adapter: cloudflare(),
   integrations: [react()],
+  security: {
+    checkOrigin: false
+  },
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    server: {
+      watch: {
+        ignored: ['**/.wrangler/**']
+      }
+    }
   }
 });

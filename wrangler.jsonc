@@ -15,6 +15,12 @@
 			"database_id": "local-db-scamshield"
 		}
 	],
+	"r2_buckets": [
+		{
+			"binding": "EVIDENCE_BUCKET",
+			"bucket_name": "scamshield-evidence"
+		}
+	],
 	"observability": {
 		"enabled": true
 	}

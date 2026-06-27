@@ -18,6 +18,8 @@ export interface DatabaseReport {
   id: string;
   entityId?: string;
   reporterType: 'BUYER' | 'SELLER';
+  entityIdentifier?: string;
+  entityType?: string;
   complaintText: string;
   incidentDate: string;
   amountLost?: number;
@@ -42,156 +44,9 @@ export interface AICacheEntry {
 }
 
 // ── Initial Mock Entities (from Phase 2) ──────────────────────────
-const INITIAL_MOCK_ENTITIES: Entity[] = [
-  {
-    id: '1',
-    identifier: '01712345678',
-    normalized: '01712345678',
-    type: 'bKash Number',
-    risk: 'confirmed',
-    complaintCount: 14,
-    firstSeen: '2026-05-01',
-    updatedAt: '2026-06-20',
-  },
-  {
-    id: '2',
-    identifier: 'TrendyClosetBD',
-    normalized: 'trendyclosetbd',
-    type: 'Facebook Shop',
-    risk: 'high',
-    complaintCount: 7,
-    firstSeen: '2026-06-01',
-    updatedAt: '2026-06-21',
-  },
-  {
-    id: '3',
-    identifier: 'GadgetKingBD',
-    normalized: 'gadgetkingbd',
-    type: 'Online Store',
-    risk: 'confirmed',
-    complaintCount: 22,
-    firstSeen: '2026-03-15',
-    updatedAt: '2026-06-22',
-  },
-  {
-    id: '4',
-    identifier: '01987654321',
-    normalized: '01987654321',
-    type: 'Buyer Number',
-    risk: 'high',
-    mode: 'seller',
-    complaintCount: 5,
-    firstSeen: '2026-05-20',
-    updatedAt: '2026-06-21',
-  },
-];
+const INITIAL_MOCK_ENTITIES: Entity[] = [];
 
-const INITIAL_MOCK_REPORTS: DatabaseReport[] = [
-  {
-    id: 'r1',
-    entityId: '1',
-    reporterType: 'BUYER',
-    complaintText: 'Took ৳3,500 for a jacket. Never delivered. Phone now switched off.',
-    incidentDate: '2026-06-20',
-    amountLost: 3500,
-    evidenceFileName: 'chat_screenshot.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-20T10:00:00Z',
-  },
-  {
-    id: 'r2',
-    entityId: '1',
-    reporterType: 'BUYER',
-    complaintText: 'Ordered shoes worth ৳2,200. Got a package with bricks inside.',
-    incidentDate: '2026-06-18',
-    amountLost: 2200,
-    evidenceFileName: 'package_brick.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-18T14:30:00Z',
-  },
-  {
-    id: 'r3',
-    entityId: '1',
-    reporterType: 'BUYER',
-    complaintText: 'Paid ৳1,800 advance for a mobile phone. Scammer blocked after payment.',
-    incidentDate: '2026-06-15',
-    amountLost: 1800,
-    evidenceFileName: 'bkash_receipt.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-15T09:15:00Z',
-  },
-  {
-    id: 'r4',
-    entityId: '2',
-    reporterType: 'BUYER',
-    complaintText: 'Sent ৳4,500 for saree. Product arrived but quality was completely different from photos.',
-    incidentDate: '2026-06-21',
-    amountLost: 4500,
-    evidenceFileName: 'saree_diff.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-21T18:40:00Z',
-  },
-  {
-    id: 'r5',
-    entityId: '2',
-    reporterType: 'BUYER',
-    complaintText: 'No cash-on-delivery option. Refused refund after wrong item delivered.',
-    incidentDate: '2026-06-19',
-    evidenceFileName: 'refund_refusal.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-19T11:20:00Z',
-  },
-  {
-    id: 'r6',
-    entityId: '3',
-    reporterType: 'BUYER',
-    complaintText: 'Phone ordered for ৳15,000. Received a box of sand with a cheap cover on top.',
-    incidentDate: '2026-06-22',
-    amountLost: 15000,
-    evidenceFileName: 'sand_box.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-22T08:00:00Z',
-  },
-  {
-    id: 'r7',
-    entityId: '3',
-    reporterType: 'BUYER',
-    complaintText: 'Fake iPhone 15 delivered instead of genuine. Shop has disappeared from Facebook.',
-    incidentDate: '2026-06-20',
-    evidenceFileName: 'chat_disappeared.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-20T21:10:00Z',
-  },
-  {
-    id: 'r8',
-    entityId: '4',
-    reporterType: 'SELLER',
-    complaintText: 'Placed COD order, refused delivery 3 times. Courier fee lost.',
-    incidentDate: '2026-06-21',
-    evidenceFileName: 'delivery_slip.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-21T16:00:00Z',
-  },
-  {
-    id: 'r9',
-    entityId: '4',
-    reporterType: 'SELLER',
-    complaintText: 'Same number placed order with our group. Gave false address, never answerable.',
-    incidentDate: '2026-06-10',
-    evidenceFileName: 'fake_address_chat.png',
-    source: 'CROWDSOURCED',
-    status: 'APPROVED',
-    createdAt: '2026-06-10T12:00:00Z',
-  },
-];
+const INITIAL_MOCK_REPORTS: DatabaseReport[] = [];
 
 // ── persistent global store for local hot module reloading ──────────
 const g = globalThis as any;
@@ -308,26 +163,32 @@ export async function createReport(reportData: PendingReport, evidenceFile: File
   const db = env?.DB;
   const bucket = env?.EVIDENCE_BUCKET;
 
-  let evidenceR2Key = '';
-  if (db && bucket && evidenceFile) {
-    // ── Cloudflare R2 Upload ──
-    evidenceR2Key = `${crypto.randomUUID()}-${evidenceFile.name}`;
-    await bucket.put(evidenceR2Key, evidenceFile);
+  if (db) {
+    let evidenceR2Key = '';
+    if (bucket && evidenceFile) {
+      // ── Cloudflare R2 Upload ──
+      evidenceR2Key = `${crypto.randomUUID()}-${evidenceFile.name}`;
+      await bucket.put(evidenceR2Key, evidenceFile);
+    } else {
+      evidenceR2Key = reportData.evidenceFileName || '';
+    }
 
     // ── D1 Insert Report ──
     await db
       .prepare(
-        `INSERT INTO reports (id, reporter_type, complaint_text, incident_date, amount_lost, evidence_r2_key, source, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO reports (id, reporter_type, entity_identifier, entity_type, complaint_text, incident_date, amount_lost, evidence_r2_key, source, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         reportData.id,
         reportData.reporterType,
+        reportData.entityIdentifier,
+        reportData.entityType,
         reportData.complaintText,
         reportData.incidentDate,
         reportData.amountLost || null,
-        evidenceR2Key,
-        'CROWDSOURCED',
+        evidenceR2Key || null,
+        reportData.source || 'CROWDSOURCED',
         'PENDING',
         reportData.createdAt
       )
@@ -342,9 +203,9 @@ export async function createReport(reportData: PendingReport, evidenceFile: File
       complaintText: reportData.complaintText,
       incidentDate: reportData.incidentDate,
       amountLost: reportData.amountLost,
-      evidenceFileName: reportData.evidenceFileName,
+      evidenceFileName: reportData.evidenceFileName || 'unknown',
       evidenceDataUrl: reportData.evidenceDataUrl,
-      source: 'CROWDSOURCED',
+      source: reportData.source || 'CROWDSOURCED',
       status: 'PENDING',
       createdAt: reportData.createdAt,
     };
@@ -374,6 +235,7 @@ export async function getPendingQueue(status: 'PENDING' | 'APPROVED' | 'REJECTED
         entityType: r.entity_type || 'Unknown',
         incidentDate: r.incident_date,
         amountLost: r.amount_lost,
+        complaintText: r.complaint_text, // Map complaint_text from D1
         evidenceFileName: r.evidence_r2_key,
         evidenceR2Key: r.evidence_r2_key,
         status: r.status,
@@ -392,6 +254,7 @@ export async function getPendingQueue(status: 'PENDING' | 'APPROVED' | 'REJECTED
         entityType: r.entityType || (r.reporterType === 'BUYER' ? 'Facebook Shop' : 'Buyer Phone Number'),
         incidentDate: r.incidentDate,
         amountLost: r.amountLost,
+        complaintText: r.complaintText, // Map complaintText from mock DB
         evidenceFileName: r.evidenceFileName,
         evidenceDataUrl: r.evidenceDataUrl,
         status: r.status,
@@ -428,6 +291,8 @@ export async function updateReportStatus(reportId: string, action: 'approve' | '
             .prepare(`UPDATE entities SET complaint_count = ?, risk = ?, updated_at = ? WHERE id = ?`)
             .bind(newCount, newRisk, now, existing.id)
             .run();
+          // Link report to the existing entity
+          await db.prepare(`UPDATE reports SET entity_id = ? WHERE id = ?`).bind(existing.id, reportId).run();
         } else {
           const newId = crypto.randomUUID();
           const risk = calculateRisk(1);
@@ -438,6 +303,8 @@ export async function updateReportStatus(reportId: string, action: 'approve' | '
             )
             .bind(newId, type, identifier, nq, risk, now, now)
             .run();
+          // Link report to the newly created entity
+          await db.prepare(`UPDATE reports SET entity_id = ? WHERE id = ?`).bind(newId, reportId).run();
         }
       }
     }
@@ -567,5 +434,63 @@ export async function setAICache(query: string, data: any, _locals?: any) {
       riskVerdict: data.riskVerdict,
       analyzedAt: now,
     };
+  }
+}
+
+export async function deleteReport(reportId: string, _locals?: any) {
+  const env = await getEnv();
+  const db = env?.DB;
+  const now = new Date().toISOString();
+
+  if (db) {
+    // Get report details to see if it was approved and linked
+    const report = await db.prepare(`SELECT * FROM reports WHERE id = ?`).bind(reportId).first();
+    if (report) {
+      const entityId = report.entity_id;
+      const status = report.status;
+      
+      // Delete the report
+      await db.prepare(`DELETE FROM reports WHERE id = ?`).bind(reportId).run();
+      
+      // If it was approved, decrement the entity complaint count
+      if (status === 'APPROVED' && entityId) {
+        const entity = await db.prepare(`SELECT * FROM entities WHERE id = ?`).bind(entityId).first();
+        if (entity) {
+          const newCount = Math.max(0, entity.complaint_count - 1);
+          if (newCount === 0) {
+            await db.prepare(`DELETE FROM entities WHERE id = ?`).bind(entityId).run();
+          } else {
+            const newRisk = calculateRisk(newCount);
+            await db.prepare(`UPDATE entities SET complaint_count = ?, risk = ?, updated_at = ? WHERE id = ?`)
+              .bind(newCount, newRisk, now, entityId)
+              .run();
+          }
+        }
+      }
+    }
+  } else {
+    // ── Local Mock Fallback ──
+    const reportIndex = mockDb.reports.findIndex((r: DatabaseReport) => r.id === reportId);
+    if (reportIndex !== -1) {
+      const report = mockDb.reports[reportIndex];
+      const entityId = report.entityId;
+      const status = report.status;
+      
+      mockDb.reports.splice(reportIndex, 1);
+      
+      if (status === 'APPROVED' && entityId) {
+        const entityIndex = mockDb.entities.findIndex((e: Entity) => e.id === entityId);
+        if (entityIndex !== -1) {
+          const newCount = Math.max(0, mockDb.entities[entityIndex].complaintCount - 1);
+          if (newCount === 0) {
+            mockDb.entities.splice(entityIndex, 1);
+          } else {
+            mockDb.entities[entityIndex].complaintCount = newCount;
+            mockDb.entities[entityIndex].risk = calculateRisk(newCount);
+            mockDb.entities[entityIndex].updatedAt = now;
+          }
+        }
+      }
+    }
   }
 }

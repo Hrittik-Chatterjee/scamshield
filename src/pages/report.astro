@@ -44,7 +44,7 @@ const mode   = Astro.url.searchParams.get('mode') ?? 'buyer';
 
     <!-- Multi-Step Form (React Island) -->
     <ReportForm
-      client:load
+      client:only="react"
       prefillEntity={entity}
       prefillMode={mode}
     />

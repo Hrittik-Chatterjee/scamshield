@@ -35,6 +35,7 @@ export interface PendingReport {
   evidenceDataUrl?: string;   // base64 preview (dev only)
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
+  source?: 'CROWDSOURCED' | 'SCRAPED';
 }
 
 // ── Handler ────────────────────────────────────────────────────────────

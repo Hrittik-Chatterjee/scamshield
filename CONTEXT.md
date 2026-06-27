@@ -119,6 +119,7 @@ c:\projects\ScamShield\
         └── api/
             ├── report.ts         ← Report submission POST endpoint
             ├── search.ts         ← Search API endpoint (currently mock data)
+            ├── scrape-ingest.ts  ← Extension scraped posts ingestion POST endpoint
             └── admin/
                 ├── queue.ts      ← Returns filtered pending reports queue
                 └── review.ts     ← Approve/reject action endpoint
@@ -184,30 +185,34 @@ c:\projects\ScamShield\
 **API keys needed (bound in Cloudflare Pages as Secrets or locally in `.dev.vars` / `.env`):**
 - `GROQ_API_KEY` — from groq.com (free)
 - `GEMINI_API_KEY` — from aistudio.google.com (free)
-- `BING_SEARCH_KEY` — from Azure portal, F0 tier (free)
-- `GOOGLE_SAFE_BROWSING_KEY` — from Google Cloud Console (free)
-- `URLSCAN_API_KEY` — from urlscan.io (free)
-
----
-
-### ⬜ Phase 5 — Browser Extension — NOT STARTED
+### ✅ Phase 5 — Browser Extension — COMPLETE
 **Goal:** Chrome extension that scrapes complaint posts from Bangladesh Facebook groups and sends data to `/api/scrape-ingest`.
 
 **Separate project:** Lives at `c:\projects\ScamShieldExtension\` (NOT inside this Astro repo)
 
 **Key notes:**
-- Built with **WXT Framework** (wxt.dev) — supports Chrome + Firefox from one codebase
-- Extension uses a secret API key (stored in extension settings) to authenticate with `/api/scrape-ingest`
-- Extracts from each FB group post: poster name, post text, phone numbers (regex: `01[3-9]\d{8}`), page links, post date
-- Data goes into D1 as `source = 'SCRAPED'`, `status = 'PENDING'` — still needs admin approval
+- [x] Initialized WXT project with React and NPM
+- [x] Implemented content script to extract poster name, post text, phone numbers, and page links
+- [x] Injected interactive "Send to ScamShield" buttons on Facebook posts
+- [x] Created settings popup to configure backend credentials and verify API connection
+- [x] Built the ingestion endpoint `/api/scrape-ingest` on the Astro server
+- [x] Verified end-to-end ingestion from WXT build outputs to D1 SQLite tables
 
-**Endpoint to create:**
+**Endpoint created:**
 - `src/pages/api/scrape-ingest.ts` — POST endpoint authenticated with `X-Scrape-Key` header
 
 ---
 
-### ⬜ Phase 6 — Seed Data, Polish & Launch — NOT STARTED
-**Goal:** Fill database with real scraped data, polish UI, set up custom domain, go public.
+### ✅ Phase 6 — Seed Data, Polish & Launch — COMPLETE
+- [x] Populate `db/seed.sql` with 20+ realistic e-commerce scam records and seed D1 database
+- [x] Format long entity URLs as clean links on the admin page
+- [x] Create combined About & FAQ page with extension installation guide
+- [x] Create dedicated success redirect page `/report-success`
+- [x] Enable local R2 bucket simulation binding `EVIDENCE_BUCKET` in `wrangler.jsonc`
+- [x] Create secure R2 image delivery API proxy `src/pages/api/evidence.ts`
+- [x] Update `scrape-ingest.ts` to download images, upload to simulated R2, and save keys in D1
+- [x] Overhaul extension post container selection to target feed child elements (`closest('[role="feed"] > *')`) and prevent comments from matching as top-level posts
+
 
 ---
 
@@ -299,6 +304,19 @@ npx astro dev --port 4321
 7. **Groq → Gemini → Workers AI fallback chain** — Never fail silently; always return something to the user.
 8. **Browser extension is a separate project** — Not inside the Astro repo. Communicates only via the `/api/scrape-ingest` HTTP endpoint.
 
+9. **Vite Watcher .wrangler Exclude** — Excluded the `.wrangler` state folder in `astro.config.mjs` to stop SQLite updates from initiating infinite watcher-triggered hot module reloads.
+10. **Client-Only React Components** — Forced dynamic React components to load via `client:only="react"` to resolve SSR duplicate package hook resolution bugs in local dev.
+11. **Extension CORS Bypass via Message Passing** — Delegated API queries (ingestion and connection validation) from the extension content script and popup script to the background service worker using `browser.runtime.sendMessage`. This bypasses browser-enforced page CORS and Astro dev-server cross-site security checks by utilising extension host permissions.
+
+12. **Comment Duplication & Scraper Refinements** — Overhauled the extension container selection to start from post-specific indicator elements and climb up to the feed item child (`closest('[role="feed"] > *')`). This resolves the issue where comments (which still use `role="article"`) were matched as top-level posts on Facebook Group feeds since Facebook removed `role="article"` from posts.
+13. **Dynamic Scraped Photo Extraction** — Configured the admin review card to parse photo links inside scraped complaint text and render them as a thumbnail gallery grid on the fly, using `referrerpolicy="no-referrer"` to bypass Facebook CDN referrer-based hotlinking protection.
+14. **Local Cloudflare R2 Bucket Simulation** — Added an `EVIDENCE_BUCKET` binding in `wrangler.jsonc` to automatically spin up a local mock R2 store in `.wrangler/state/v3/r2/` during local development, preventing reliance on hotlinking expiring Facebook CDN links.
+15. **Server-Side Ingestion Downloader** — Implemented server-side image downloading in `src/pages/api/scrape-ingest.ts` to download scraped image URLs on the server, upload them to R2, and save their keys in the database.
+16. **Private Evidence Delivery Proxy** — Created the `src/pages/api/evidence.ts` proxy endpoint to serve files stored in the private R2 bucket securely with caching.
+17. **Admin Lightbox, Image Navigation, and Permanent Delete** — Added a CSS/JS lightbox modal to preview evidence and scraped photos inline on the admin dashboard, preventing disruptive external redirects. Added **image navigation** to the lightbox, enabling next/prev buttons, keyboard arrow key listeners (left/right), and a dynamic counter (e.g., `1 / 4`) to easily cycle through all evidence and scraped photos for each report. Integrated a permanent delete button on all cards that wipes reports and updates the corresponding entities' complaint counts.
+
 ---
 
-*Last updated: Phase 3 complete. Phase 4 (AI Fraud Indicator Analyzer) is next.*
+*Last updated: Phase 6 complete. Admin dashboard polished with inline image lightbox, image navigation, and permanent delete functionality.*
+
+

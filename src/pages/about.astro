@@ -1,0 +1,120 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const faqs = [
+  {
+    q: "Is ScamShield BD really free to use?",
+    a: "Yes! ScamShield BD is 100% free and open-source. It will remain free forever with zero subscription fees, premium tiers, or ads."
+  },
+  {
+    q: "How does the AI Safety Scan work?",
+    a: "When you search for an entity that is not in our verified database, our AI Scanner runs real-time checks on the domain registration age, Google Safe Browsing APIs, search engine indexing, and social reviews to generate a risk rating in under 2 seconds."
+  },
+  {
+    q: "What is the WXT Scraper Extension?",
+    a: "It is a helper browser extension for Chrome and Edge. When enabled, it auto-detects and scrolls through e-commerce scam groups to automatically capture fraud reports and screenshots to feed our review queue."
+  },
+  {
+    q: "How can I install the browser extension?",
+    a: "Currently, you can install the extension in developer mode: 1. Download the extension folder. 2. Open chrome://extensions in your browser. 3. Enable 'Developer mode' in the top right. 4. Click 'Load unpacked' and select the '.output/chrome-mv3' directory."
+  },
+  {
+    q: "How do reports get verified?",
+    a: "Every report submitted by users or ingested by the scraper enters a PENDING review queue. ScamShield administrators verify the evidence screenshots or links before approving them to appear in public search results."
+  }
+];
+---
+
+<Layout title="About & FAQ — ScamShield BD" description="Learn how ScamShield BD works, check our FAQ, and install our automated web scraping browser extension.">
+
+  <div style="max-width: 800px; margin: 0 auto; padding: 40px 16px;">
+    
+    <!-- Hero Header -->
+    <div style="text-align: center; margin-bottom: 56px;">
+      <h1 style="font-size: clamp(2rem, 4vw, 2.75rem); font-weight: 700; color: var(--color-text-primary); margin: 0 0 16px; letter-spacing: -0.02em;">
+        Protecting Bangladesh's <span style="color: var(--color-danger);">Digital Trust</span>
+      </h1>
+      <p style="font-size: 16px; color: var(--color-text-secondary); max-width: 540px; margin: 0 auto; line-height: 1.6;">
+        ScamShield BD is a crowdsourced fraud directory and AI verification tool designed to stop prepayment scams, fake pages, and Cash on Delivery fraud.
+      </p>
+    </div>
+
+    <!-- Technology & Mission Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; margin-bottom: 64px;">
+      
+      <!-- Box 1 -->
+      <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 32px;">
+        <div style="font-size: 24px; margin-bottom: 16px;">🌱</div>
+        <h3 style="font-size: 18px; font-weight: 600; color: var(--color-text-primary); margin: 0 0 12px;">Our Mission</h3>
+        <p style="font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; margin: 0;">
+          Online shopping in Bangladesh should be safe. We build open tools to help everyday buyers verify numbers and pages before sending cash, while protecting honest sellers from fake delivery refusers.
+        </p>
+      </div>
+
+      <!-- Box 2 -->
+      <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 32px;">
+        <div style="font-size: 24px; margin-bottom: 16px;">⚡</div>
+        <h3 style="font-size: 18px; font-weight: 600; color: var(--color-text-primary); margin: 0 0 12px;">Zero Operational Cost</h3>
+        <p style="font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; margin: 0;">
+          Built on a highly optimized serverless stack: Cloudflare Workers, D1 SQL Database, and R2 Storage. This architecture keeps our operational cost at $0.00/month forever, ensuring the platform stays online permanently.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Extension Install Section -->
+    <section style="background: linear-gradient(135deg, rgba(24, 99, 220, 0.08) 0%, rgba(24, 99, 220, 0.02) 100%); border: 1px solid rgba(24, 99, 220, 0.2); border-radius: var(--radius-xl); padding: 40px; margin-bottom: 64px;">
+      <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+        <div style="font-size: 40px; line-height: 1;">🔌</div>
+        <div style="flex: 1; min-width: 280px;">
+          <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--color-accent); text-transform: uppercase; display: block; margin-bottom: 8px;">Browser Companion</span>
+          <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 12px;">ScamShield BD Scraper Extension</h2>
+          <p style="font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; margin: 0 0 20px;">
+            Automate your contribution to the scam alert network. Our Chrome/Edge extension lets you browse Facebook scam groups, auto-scrolling and auto-ingesting posts and evidence to our queue with one click.
+          </p>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <a href="https://github.com/Hrittik-Chatterjee/scamshield" target="_blank" style="padding: 12px 24px; background: var(--color-accent); color: white; border-radius: var(--radius-pill); font-size: 13px; font-weight: 600; text-decoration: none; display: inline-block; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+              Download Extension Source ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Accordions -->
+    <section>
+      <h2 style="font-size: 22px; font-weight: 700; color: var(--color-text-primary); text-align: center; margin-bottom: 32px;">Frequently Asked Questions</h2>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        {faqs.map((faq, i) => (
+          <details style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; transition: border-color 0.2s;" class="faq-details">
+            <summary style="padding: 20px 24px; font-size: 15px; font-weight: 600; color: var(--color-text-primary); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; user-select: none;">
+              {faq.q}
+              <span class="chevron" style="font-size: 12px; transition: transform 0.2s; color: var(--color-text-muted);">▼</span>
+            </summary>
+            <div style="padding: 0 24px 20px; font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; border-top: 1px solid transparent;" class="faq-content">
+              {faq.a}
+            </div>
+          </details>
+        ))}
+      </div>
+    </section>
+
+  </div>
+
+</Layout>
+
+<style>
+  /* Custom accordion styling */
+  details summary::-webkit-details-marker {
+    display: none;
+  }
+  details[open] summary .chevron {
+    transform: rotate(180deg);
+  }
+  details[open] {
+    border-color: var(--color-border-light);
+  }
+  details[open] .faq-content {
+    border-top-color: var(--color-border);
+  }
+</style>

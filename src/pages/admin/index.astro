@@ -81,6 +81,28 @@ const authed = providedKey === ADMIN_KEY;
         <div style="text-align: center; padding: 48px; color: var(--color-text-muted);">Loading reports…</div>
       </div>
 
+      <!-- Lightbox Modal -->
+      <div id="image-lightbox" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:999999;align-items:center;justify-content:center;cursor:pointer;user-select:none;" onclick="window.closeLightbox()">
+        <!-- Close button -->
+        <span style="position:absolute;top:24px;right:24px;color:white;font-size:36px;font-weight:bold;cursor:pointer;user-select:none;transition:opacity 0.2s;z-index:10;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">&times;</span>
+        
+        <!-- Prev Button -->
+        <button id="lightbox-prev" style="display:none;position:absolute;left:24px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.12);color:white;border:none;border-radius:50%;width:56px;height:56px;align-items:center;justify-content:center;font-size:32px;cursor:pointer;z-index:10;transition:all 0.2s;font-weight:300;" onclick="window.prevImage(event)" onmouseover="this.style.background='rgba(255,255,255,0.22)';this.style.transform='translateY(-50%) scale(1.05)';" onmouseout="this.style.background='rgba(255,255,255,0.12)';this.style.transform='translateY(-50%) scale(1)';">
+          &lsaquo;
+        </button>
+        
+        <!-- Image element -->
+        <img id="lightbox-img" src="" style="max-width:85%;max-height:85%;object-fit:contain;border-radius:12px;box-shadow:0 16px 64px rgba(0,0,0,0.85);cursor:default;transition:all 0.2s;" onclick="event.stopPropagation()" />
+        
+        <!-- Next Button -->
+        <button id="lightbox-next" style="display:none;position:absolute;right:24px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.12);color:white;border:none;border-radius:50%;width:56px;height:56px;align-items:center;justify-content:center;font-size:32px;cursor:pointer;z-index:10;transition:all 0.2s;font-weight:300;" onclick="window.nextImage(event)" onmouseover="this.style.background='rgba(255,255,255,0.22)';this.style.transform='translateY(-50%) scale(1.05)';" onmouseout="this.style.background='rgba(255,255,255,0.12)';this.style.transform='translateY(-50%) scale(1)';">
+          &rsaquo;
+        </button>
+        
+        <!-- Counter info -->
+        <div id="lightbox-counter" style="display:none;position:absolute;bottom:28px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.85);font-size:13px;font-weight:600;background:rgba(25,25,30,0.75);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);padding:6px 16px;border-radius:30px;font-family:system-ui, -apple-system, sans-serif;"></div>
+      </div>
+
     </div>
   )}
 
@@ -131,6 +153,78 @@ const authed = providedKey === ADMIN_KEY;
       }
     }
 
+    function parseScrapedComplaint(text) {
+      const result = {
+        originalUrl: '',
+        posterName: '',
+        posterProfile: '',
+        caption: text || '',
+        photos: []
+      };
+
+      if (!text) return result;
+
+      // 1. Try JSON Parsing first
+      const trimmed = text.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed.scraped) {
+            result.originalUrl = parsed.postUrl || '';
+            result.posterName = parsed.posterName || '';
+            result.posterProfile = parsed.posterUrl || '';
+            result.caption = parsed.postText || '';
+            result.photos = parsed.images || [];
+            return result;
+          }
+        } catch (e) {
+          console.error("JSON parse failed, falling back to regex", e);
+        }
+      }
+
+      // 2. Fallback to Regex Parser (normalized CRLF to LF)
+      const normalized = text.replace(/\r\n/g, '\n').trim();
+      if (!normalized.includes('[Scraped from')) {
+        return result;
+      }
+
+      // Extract Original Post URL
+      const postUrlMatch = normalized.match(/\[Scraped from [^\]]+\] \((https?:\/\/[^\)]+)\)/);
+      if (postUrlMatch) {
+        result.originalUrl = postUrlMatch[1];
+      }
+
+      // Extract Poster Name
+      const posterNameMatch = normalized.match(/Poster: ([^\n]+)/);
+      if (posterNameMatch) {
+        result.posterName = posterNameMatch[1].trim();
+      }
+
+      // Extract Poster Profile URL
+      const posterProfileMatch = normalized.match(/Poster Profile: ([^\n]+)/);
+      if (posterProfileMatch) {
+        result.posterProfile = posterProfileMatch[1].trim();
+      }
+
+      // Extract Captured Photos
+      const photoRegex = /Photo \d+: (https?:\/\/[^\s\n]+)/g;
+      let match;
+      while ((match = photoRegex.exec(normalized)) !== null) {
+        result.photos.push(match[1]);
+      }
+
+      // Extract actual caption
+      let captionText = normalized;
+      captionText = captionText.replace(/\[Scraped from [^\]]+\] \([^\)]+\)\n?/, '');
+      captionText = captionText.replace(/Poster: [^\n]+\n?/, '');
+      captionText = captionText.replace(/Poster Profile: [^\n]+\n?/, '');
+      captionText = captionText.replace(/--- Captured Photos ---[\s\S]*$/, '');
+      captionText = captionText.replace(/--- Visible Comments ---[\s\S]*$/, '');
+
+      result.caption = captionText.trim();
+      return result;
+    }
+
     function renderCard(r) {
       const typeColor = r.reporterType === 'BUYER' ? 'var(--color-danger)' : 'var(--color-accent)';
       const typeBg   = r.reporterType === 'BUYER' ? 'rgba(230,57,70,0.08)' : 'rgba(123,104,238,0.08)';
@@ -138,14 +232,97 @@ const authed = providedKey === ADMIN_KEY;
       const typeLabel  = r.reporterType === 'BUYER' ? '🛒 Buyer Report' : '🏪 Seller Report';
       const date = new Date(r.createdAt).toLocaleString('en-BD', { dateStyle: 'medium', timeStyle: 'short' });
 
-      const imgHtml = r.evidenceDataUrl
-        ? `<img src="${r.evidenceDataUrl}" alt="Evidence" style="max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--color-border);display:block;margin-top:12px;cursor:pointer;" onclick="window.open('${r.evidenceDataUrl}','_blank')" title="Click to view full size" />`
-        : `<div style="padding:16px;background:var(--color-surface);border-radius:8px;font-size:13px;color:var(--color-text-muted);margin-top:12px;">📎 ${r.evidenceFileName}</div>`;
+      // Clean display for Entity identifier
+      const isEntityLink = r.entityIdentifier && r.entityIdentifier.startsWith('http');
+      const entityDisplay = isEntityLink
+        ? `<a href="${r.entityIdentifier}" target="_blank" style="color:var(--color-accent);font-weight:600;text-decoration:none;word-break:break-all;">${r.entityIdentifier.replace(/https?:\/\/(www\.)?facebook\.com\//, '')} ↗</a>`
+        : r.entityIdentifier;
 
-      const actionBtns = r.status === 'PENDING' ? `
-        <button onclick="reviewReport('${r.id}','approve')" style="padding:10px 20px;background:var(--color-safe);color:white;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:sans-serif;">✓ Approve</button>
-        <button onclick="reviewReport('${r.id}','reject')" style="padding:10px 20px;background:transparent;color:var(--color-danger);border:1px solid rgba(230,57,70,0.4);border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:sans-serif;">✗ Reject</button>
-      ` : `<span style="font-size:13px;font-weight:600;color:${r.status==='APPROVED'?'var(--color-safe)':'var(--color-text-muted)'};">${r.status==='APPROVED'?'✓ Approved':'✗ Rejected'}</span>`;
+      const isLink = r.evidenceFileName && r.evidenceFileName.startsWith('http');
+      const isR2Key = r.evidenceFileName && !isLink && !r.evidenceDataUrl;
+      const displayImgUrl = r.evidenceDataUrl || (isR2Key ? `/api/evidence?key=${encodeURIComponent(r.evidenceFileName)}` : '');
+
+      // Parse scraped posts if applicable to extract photoUrls first
+      const trimmedText = (r.complaintText || '').trim();
+      const isScraped = trimmedText.startsWith('[Scraped from') || (trimmedText.startsWith('{') && trimmedText.endsWith('}'));
+      let complaintContent = r.complaintText;
+      let posterNameHtml = '';
+      let photoUrls = [];
+
+      if (isScraped) {
+        const parsed = parseScrapedComplaint(r.complaintText);
+        complaintContent = parsed.caption || '(No caption)';
+        photoUrls = parsed.photos;
+
+        if (parsed.posterName) {
+          const isAnon = parsed.posterName.toLowerCase().includes('anonymous') || parsed.posterName.toLowerCase().includes('অনামী');
+          const nameDisplay = isAnon ? '👥 Anonymous User' : parsed.posterName;
+          
+          if (parsed.posterProfile && !isAnon) {
+            posterNameHtml = `<div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">POSTER</div><div style="font-size:14px;color:var(--color-text-primary);font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><a href="${parsed.posterProfile}" target="_blank" style="color:var(--color-accent);text-decoration:none;" title="${parsed.posterName}">${nameDisplay} ↗</a></div></div>`;
+          } else {
+            posterNameHtml = `<div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">POSTER</div><div style="font-size:14px;color:var(--color-text-primary);font-weight:600;">${nameDisplay}</div></div>`;
+          }
+        }
+      } else {
+        const photoRegex = /Photo \d+: (https?:\/\/[^\s\n]+)/g;
+        let match;
+        while ((match = photoRegex.exec(r.complaintText)) !== null) {
+          photoUrls.push(match[1]);
+        }
+      }
+
+      // Collect all images for the lightbox group of this card
+      const allCardImages = [];
+      if (displayImgUrl) {
+        allCardImages.push(displayImgUrl);
+      }
+      photoUrls.forEach(url => {
+        const isAbsolute = url.startsWith('http') || url.startsWith('data:');
+        const renderUrl = isAbsolute ? url : `/api/evidence?key=${encodeURIComponent(url)}`;
+        allCardImages.push(renderUrl);
+      });
+      const allCardImagesJson = JSON.stringify(allCardImages).replace(/"/g, '&quot;');
+
+      const imgHtml = displayImgUrl
+        ? `<img src="${displayImgUrl}" alt="Evidence" style="max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--color-border);display:block;margin-top:12px;cursor:pointer;" onclick="window.openLightbox('${displayImgUrl}', ${allCardImagesJson})" title="Click to view full size" />`
+        : isLink
+          ? `<div style="padding:16px;background:var(--color-surface);border-radius:8px;font-size:13px;margin-top:12px;">📎 <a href="${r.evidenceFileName}" target="_blank" style="color:var(--color-accent);font-weight:600;text-decoration:none;">Open Scraped Post Link ↗</a></div>`
+          : `<div style="padding:16px;background:var(--color-surface);border-radius:8px;font-size:13px;color:var(--color-text-muted);margin-top:12px;">📎 ${r.evidenceFileName}</div>`;
+
+      let photosHtml = '';
+      if (photoUrls.length > 0) {
+        photosHtml = `
+          <div style="margin-top:12px;">
+            <div style="font-size:11px;color:var(--color-text-muted);margin-bottom:6px;">SCRAPED PHOTOS (${photoUrls.length})</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              ${photoUrls.map((url, index) => {
+                const isAbsolute = url.startsWith('http') || url.startsWith('data:');
+                const renderUrl = isAbsolute ? url : `/api/evidence?key=${encodeURIComponent(url)}`;
+                return `
+                  <div style="position:relative;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:var(--color-surface);">
+                    <img src="${renderUrl}" referrerpolicy="no-referrer" alt="Scraped Photo ${index + 1}" style="height:100px;max-width:180px;object-fit:cover;display:block;cursor:pointer;" onclick="window.openLightbox('${renderUrl}', ${allCardImagesJson})" title="Click to view full size" />
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      const actionBtns = `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          ${r.status === 'PENDING' ? `
+            <button onclick="reviewReport('${r.id}','approve')" style="padding:8px 16px;background:var(--color-safe);color:white;border:none;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:sans-serif;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">✓ Approve</button>
+            <button onclick="reviewReport('${r.id}','reject')" style="padding:8px 16px;background:transparent;color:var(--color-danger);border:1px solid rgba(230,57,70,0.4);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:sans-serif;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">✗ Reject</button>
+          ` : `
+            <span style="font-size:12px;font-weight:700;color:${r.status==='APPROVED'?'var(--color-safe)':'var(--color-text-muted)'};text-transform:uppercase;letter-spacing:0.05em;">${r.status==='APPROVED'?'✓ Approved':'✗ Rejected'}</span>
+          `}
+          <button onclick="reviewReport('${r.id}','delete')" style="padding:8px 16px;background:rgba(230,57,70,0.06);color:var(--color-danger);border:1.5px dashed rgba(230,57,70,0.4);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:sans-serif;transition:all 0.2s;display:inline-flex;align-items:center;gap:4px;" onmouseover="this.style.background='var(--color-danger)';this.style.color='white';this.style.borderStyle='solid';" onmouseout="this.style.background='rgba(230,57,70,0.06)';this.style.color='var(--color-danger)';this.style.borderStyle='dashed';">
+            🗑 Delete
+          </button>
+        </div>
+      `;
 
       return `
         <div id="card-${r.id}" style="background:var(--color-card);border:1px solid var(--color-border);border-radius:16px;padding:24px;margin-bottom:16px;">
@@ -158,16 +335,18 @@ const authed = providedKey === ADMIN_KEY;
             <div style="display:flex;gap:8px;align-items:center;">${actionBtns}</div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">ENTITY</div><div style="font-family:monospace;font-size:14px;color:var(--color-text-primary);font-weight:600;">${r.entityIdentifier}</div></div>
+            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">ENTITY</div><div style="font-size:14px;color:var(--color-text-primary);font-weight:600;">${entityDisplay}</div></div>
             <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">TYPE</div><div style="font-size:13px;color:var(--color-text-secondary);">${r.entityType}</div></div>
+            ${posterNameHtml}
             <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">INCIDENT DATE</div><div style="font-size:13px;color:var(--color-text-secondary);">${r.incidentDate}</div></div>
             ${r.amountLost ? `<div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">AMOUNT LOST</div><div style="font-size:13px;color:var(--color-danger);font-weight:600;">৳${r.amountLost.toLocaleString()}</div></div>` : ''}
           </div>
           <div style="background:var(--color-surface);border-radius:8px;padding:14px;margin-bottom:12px;">
             <div style="font-size:11px;color:var(--color-text-muted);margin-bottom:6px;">COMPLAINT</div>
-            <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;">${r.complaintText}</div>
+            <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;white-space:pre-wrap;">${complaintContent}</div>
           </div>
-          <div>
+          ${photosHtml}
+          <div style="margin-top:12px;">
             <div style="font-size:11px;color:var(--color-text-muted);margin-bottom:4px;">EVIDENCE</div>
             ${imgHtml}
           </div>
@@ -176,6 +355,9 @@ const authed = providedKey === ADMIN_KEY;
     }
 
     async function reviewReport(reportId, action) {
+      if (action === 'delete' && !confirm('Are you sure you want to permanently delete this report? This will remove all associated records.')) {
+        return;
+      }
       const card = document.getElementById(`card-${reportId}`);
       if (card) card.style.opacity = '0.5';
       try {
@@ -195,9 +377,85 @@ const authed = providedKey === ADMIN_KEY;
       }
     }
 
+    let lightboxImages = [];
+    let lightboxIndex = 0;
+
+    function openLightbox(src, imageGroup = []) {
+      lightboxImages = imageGroup.length > 0 ? imageGroup : [src];
+      lightboxIndex = lightboxImages.indexOf(src);
+      if (lightboxIndex === -1) lightboxIndex = 0;
+      updateLightbox();
+    }
+
+    function updateLightbox() {
+      const lightbox = document.getElementById('image-lightbox');
+      const img = document.getElementById('lightbox-img');
+      const prevBtn = document.getElementById('lightbox-prev');
+      const nextBtn = document.getElementById('lightbox-next');
+      const counter = document.getElementById('lightbox-counter');
+      
+      if (lightbox && img) {
+        img.src = lightboxImages[lightboxIndex];
+        lightbox.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        
+        if (lightboxImages.length > 1) {
+          if (prevBtn) prevBtn.style.display = 'flex';
+          if (nextBtn) nextBtn.style.display = 'flex';
+          if (counter) {
+            counter.style.display = 'block';
+            counter.textContent = `${lightboxIndex + 1} / ${lightboxImages.length}`;
+          }
+        } else {
+          if (prevBtn) prevBtn.style.display = 'none';
+          if (nextBtn) nextBtn.style.display = 'none';
+          if (counter) counter.style.display = 'none';
+        }
+      }
+    }
+
+    function prevImage(e) {
+      if (e) e.stopPropagation();
+      if (lightboxImages.length <= 1) return;
+      lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+      updateLightbox();
+    }
+
+    function nextImage(e) {
+      if (e) e.stopPropagation();
+      if (lightboxImages.length <= 1) return;
+      lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+      updateLightbox();
+    }
+
+    function closeLightbox() {
+      const lightbox = document.getElementById('image-lightbox');
+      if (lightbox) {
+        lightbox.style.display = 'none';
+        document.body.style.overflow = 'auto';
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      const lightbox = document.getElementById('image-lightbox');
+      if (lightbox && lightbox.style.display === 'flex') {
+        if (e.key === 'Escape') {
+          closeLightbox();
+        } else if (e.key === 'ArrowLeft') {
+          prevImage();
+        } else if (e.key === 'ArrowRight') {
+          nextImage();
+        }
+      }
+    });
+
     // Expose functions globally for HTML onclick handlers
     window.reviewReport = reviewReport;
     window.filterReports = filterReports;
+    window.openLightbox = openLightbox;
+    window.closeLightbox = closeLightbox;
+    window.prevImage = prevImage;
+    window.nextImage = nextImage;
 
     // Init
     fetchStats();
