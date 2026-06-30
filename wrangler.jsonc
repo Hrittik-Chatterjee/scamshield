@@ -12,7 +12,7 @@
 		{
 			"binding": "DB",
 			"database_name": "scamshield-db",
-			"database_id": "local-db-scamshield"
+			"database_id": "814f6140-9733-4782-a21b-6cd8e3ddd8e8"
 		}
 	],
 	"r2_buckets": [
