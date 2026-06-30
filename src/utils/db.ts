@@ -82,7 +82,7 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
   if (db) {
     // ── Cloudflare D1 Query ──
     const matchMode = mode === 'seller' ? 'BUYER' : 'SELLER'; // seller searches for buyers, buyer searches for sellers
-    const entitiesResult = await db
+    let entitiesResult = await db
       .prepare(
         `SELECT * FROM entities 
          WHERE type = ? 
@@ -90,6 +90,31 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
       )
       .bind(matchMode, nq, nq, nq)
       .all();
+
+    if (!entitiesResult || !entitiesResult.results || entitiesResult.results.length === 0) {
+      // Fallback: search reports table for approved reports containing the search query in identifier or text
+      const reporterType = matchMode === 'SELLER' ? 'BUYER' : 'SELLER';
+      const wildcard = `%${query}%`;
+      const reportsSearch = await db
+        .prepare(
+          `SELECT DISTINCT entity_id FROM reports 
+           WHERE status = 'APPROVED' 
+           AND reporter_type = ? 
+           AND entity_id IS NOT NULL 
+           AND (entity_identifier LIKE ? OR complaint_text LIKE ?)`
+        )
+        .bind(reporterType, wildcard, wildcard)
+        .all();
+
+      if (reportsSearch && reportsSearch.results && reportsSearch.results.length > 0) {
+        const entityIds = reportsSearch.results.map((r: any) => r.entity_id);
+        const placeholders = entityIds.map(() => '?').join(',');
+        entitiesResult = await db
+          .prepare(`SELECT * FROM entities WHERE id IN (${placeholders})`)
+          .bind(...entityIds)
+          .all();
+      }
+    }
 
     if (entitiesResult && entitiesResult.results && entitiesResult.results.length > 0) {
       const results = entitiesResult.results;
@@ -141,11 +166,27 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
     }
   } else {
     // ── Local Mock Fallback ──
-    const matches = mockDb.entities.filter((e: Entity) => {
+    let matches = mockDb.entities.filter((e: Entity) => {
       const modeMatch = mode === 'seller' ? e.mode === 'seller' : e.mode !== 'seller';
       const textMatch = normalize(e.identifier).includes(nq) || nq.includes(normalize(e.identifier));
       return modeMatch && textMatch;
     });
+
+    if (matches.length === 0) {
+      const reporterType = mode === 'seller' ? 'SELLER' : 'BUYER';
+      const matchingReports = mockDb.reports.filter(
+        (r: DatabaseReport) =>
+          r.status === 'APPROVED' &&
+          r.reporterType === reporterType &&
+          r.entityId &&
+          (r.entityIdentifier?.toLowerCase().includes(query.toLowerCase()) ||
+            r.complaintText.toLowerCase().includes(query.toLowerCase()))
+      );
+      if (matchingReports.length > 0) {
+        const entityIds = Array.from(new Set(matchingReports.map((r) => r.entityId)));
+        matches = mockDb.entities.filter((e: Entity) => entityIds.includes(e.id));
+      }
+    }
 
     if (matches.length > 0) {
       if (matches.length === 1) {
