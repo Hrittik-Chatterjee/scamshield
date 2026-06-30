@@ -86,7 +86,7 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
       .prepare(
         `SELECT * FROM entities 
          WHERE type = ? 
-         AND (normalized = ? OR ? LIKE '%' || normalized || '%')`
+         AND (normalized = ? OR instr(?, normalized) > 0)`
       )
       .bind(matchMode, nq, nq)
       .first();
@@ -189,7 +189,7 @@ export async function createReport(reportData: PendingReport, evidenceFile: File
         reportData.amountLost || null,
         evidenceR2Key || null,
         reportData.source || 'CROWDSOURCED',
-        'PENDING',
+        reportData.status || 'PENDING',
         reportData.createdAt
       )
       .run();
@@ -206,10 +206,25 @@ export async function createReport(reportData: PendingReport, evidenceFile: File
       evidenceFileName: reportData.evidenceFileName || 'unknown',
       evidenceDataUrl: reportData.evidenceDataUrl,
       source: reportData.source || 'CROWDSOURCED',
-      status: 'PENDING',
+      status: reportData.status || 'PENDING',
       createdAt: reportData.createdAt,
     };
     mockDb.reports.unshift(report);
+  }
+}
+
+export async function checkReportExistsByPostUrl(postUrl: string): Promise<boolean> {
+  const env = await getEnv();
+  const db = env?.DB;
+  if (db) {
+    const existing = await db
+      .prepare('SELECT id FROM reports WHERE evidence_r2_key = ? LIMIT 1')
+      .bind(postUrl)
+      .first();
+    return !!existing;
+  } else {
+    // Local mock fallback check
+    return mockDb.reports.some((r: any) => r.evidenceFileName === postUrl);
   }
 }
 

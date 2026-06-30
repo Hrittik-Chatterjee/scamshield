@@ -292,3 +292,140 @@ export async function runAIInference(
 
   return { riskVerdict: verdict, explanation, flags };
 }
+
+export async function classifyScrapedPost(
+  text: string,
+  groqKey?: string,
+  geminiKey?: string
+): Promise<{ isScamReport: boolean; explanation: string }> {
+  const prompt = `You are ScamShield BD's post classification model.
+Analyze the following Facebook post text from a Bangladeshi buyer safety group.
+Classify whether the post is:
+1. A report/complaint about a scam, fraud, cheating, money loss, or receiving fake/damaged/duplicate products from a seller (isScamReport = true).
+2. A general recommendation request, suggestion query, product lookup, or general greeting/question (isScamReport = false). E.g. "I want to buy a charger, suggest authentic page", "is this shop authentic?", "where can I buy X?"
+
+Post Text:
+"""
+${text}
+"""
+
+Respond ONLY with a JSON object in this format:
+{
+  "isScamReport": true | false,
+  "explanation": "Brief explanation in English (1 sentence)."
+}`;
+
+  // ── 1. Groq Inference (Primary) ──
+  if (groqKey && groqKey !== 'paste_your_groq_api_key_here') {
+    try {
+      console.log('[Scanner] Classifying post via Groq...');
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${groqKey}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are ScamShield BD\'s post classifier. Return strictly a JSON object.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          response_format: { type: 'json_object' }
+        })
+      });
+
+      if (res.ok) {
+        const data: any = await res.json();
+        const contentText = data.choices?.[0]?.message?.content;
+        if (contentText) {
+          const parsed = JSON.parse(contentText);
+          return {
+            isScamReport: !!parsed.isScamReport,
+            explanation: parsed.explanation || 'Analyzed via primary AI.'
+          };
+        }
+      }
+    } catch (err) {
+      console.error('[Scanner] Groq classification error, falling back:', err);
+    }
+  }
+
+  // ── 2. Gemini Inference (Fallback) ──
+  if (geminiKey && geminiKey !== 'paste_your_gemini_api_key_here') {
+    try {
+      console.log('[Scanner] Classifying post via Gemini fallback...');
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{
+                text: `${prompt}\n\nRespond strictly with a JSON object containing: isScamReport (boolean) and explanation (string).`
+              }]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json'
+          }
+        })
+      });
+
+      if (res.ok) {
+        const data: any = await res.json();
+        const contentText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (contentText) {
+          const parsed = JSON.parse(contentText);
+          return {
+            isScamReport: !!parsed.isScamReport,
+            explanation: parsed.explanation || 'Analyzed via Gemini fallback.'
+          };
+        }
+      }
+    } catch (err) {
+      console.error('[Scanner] Gemini classification error, falling back:', err);
+    }
+  }
+
+  // ── 3. Local Heuristics Fallback (if no API keys) ──
+  console.log('[Scanner] No active API keys for classification. Using local keyword heuristics.');
+  const lowerText = text.toLowerCase();
+  
+  // Suggestion/Recommendation indicators (Bengali & English)
+  const suggestionKeywords = [
+    'suggest', 'recommend', 'suggestion', 'খুঁজছি', 'চাই', 'পরামর্শ', 
+    'খুজছি', 'কোথায় পাব', 'kothay pabo', 'suggestions', 'authentic page',
+    'বিশ্বস্ত পেজ', 'biswasto page', 'help me find', 'looking for',
+    'প্রয়োজন', 'সাজেস্ট', 'সাজেষ্ট', 'সাজেসট', 'ট্রাস্টেড',
+    'কিনতে চাই', 'কেনার', 'সন্ধান দিন', 'খুজতাছি', 'খুঁজতাছি',
+    'proyojon', 'sajest', 'trusted page', 'trusted'
+  ];
+
+  // Scam indicators (Bengali & English)
+  const scamKeywords = [
+    'scam', 'fraud', 'cheated', 'fake', 'প্রতারণা', 'টাকা মেরে', 
+    'রিফান্ড দেয়নি', 'scammer', 'প্রতারক', 'মেরে দিছে', 'blocking',
+    'রেসপন্স নাই', 'response dey na', 'দেই নাই', 'রিফান্ড দেয় নাই'
+  ];
+
+  // Check if it matches recommendation keywords
+  const hasSuggestion = suggestionKeywords.some(keyword => lowerText.includes(keyword));
+  const hasScam = scamKeywords.some(keyword => lowerText.includes(keyword));
+
+  let isScamReport = true;
+  let explanation = 'Classified as a scam complaint via local heuristics.';
+
+  if (hasSuggestion && !hasScam) {
+    isScamReport = false;
+    explanation = 'Identified as a general suggestion or recommendation query via local heuristics.';
+  }
+
+  return { isScamReport, explanation };
+}

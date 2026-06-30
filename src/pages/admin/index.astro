@@ -343,7 +343,19 @@ const authed = providedKey === ADMIN_KEY;
           </div>
           <div style="background:var(--color-surface);border-radius:8px;padding:14px;margin-bottom:12px;">
             <div style="font-size:11px;color:var(--color-text-muted);margin-bottom:6px;">COMPLAINT</div>
-            <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;white-space:pre-wrap;">${complaintContent}</div>
+            ${(() => {
+              const isLong = complaintContent.length > 300;
+              const displayContent = isLong ? complaintContent.substring(0, 300) + '...' : complaintContent;
+              const escapedFullText = encodeURIComponent(complaintContent);
+              return isLong ? `
+                <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;white-space:pre-wrap;" data-full-text="${escapedFullText}" data-collapsed="true">
+                  <span class="complaint-span">${displayContent}</span>
+                  <button onclick="window.toggleComplaintExpand(this)" style="background:none;border:none;color:var(--color-accent);font-weight:600;padding:0;margin-left:6px;cursor:pointer;font-family:sans-serif;font-size:13px;text-decoration:underline;display:inline;">See More</button>
+                </div>
+              ` : `
+                <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;white-space:pre-wrap;">${complaintContent}</div>
+              `;
+            })()}
           </div>
           ${photosHtml}
           <div style="margin-top:12px;">
@@ -436,6 +448,22 @@ const authed = providedKey === ADMIN_KEY;
       }
     }
 
+    function toggleComplaintExpand(btn) {
+      const container = btn.parentElement;
+      const isCollapsed = container.getAttribute('data-collapsed') === 'true';
+      const fullText = decodeURIComponent(container.getAttribute('data-full-text'));
+      
+      if (isCollapsed) {
+        container.querySelector('.complaint-span').textContent = fullText;
+        container.setAttribute('data-collapsed', 'false');
+        btn.textContent = 'See Less';
+      } else {
+        container.querySelector('.complaint-span').textContent = fullText.substring(0, 300) + '...';
+        container.setAttribute('data-collapsed', 'true');
+        btn.textContent = 'See More';
+      }
+    }
+
     document.addEventListener('keydown', (e) => {
       const lightbox = document.getElementById('image-lightbox');
       if (lightbox && lightbox.style.display === 'flex') {
@@ -456,6 +484,7 @@ const authed = providedKey === ADMIN_KEY;
     window.closeLightbox = closeLightbox;
     window.prevImage = prevImage;
     window.nextImage = nextImage;
+    window.toggleComplaintExpand = toggleComplaintExpand;
 
     // Init
     fetchStats();

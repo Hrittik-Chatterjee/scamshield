@@ -2,9 +2,10 @@
 // API endpoint to ingest scraped reports from the browser extension.
 // Protected by X-Scrape-Key header.
 import type { APIRoute } from 'astro';
-import { createReport } from '../../utils/db';
+import { createReport, checkReportExistsByPostUrl } from '../../utils/db';
 import type { PendingReport } from './report';
 import { getEnv } from '../../utils/env';
+import { classifyScrapedPost } from '../../utils/scanner';
 
 interface ScrapedIdentifier {
   value: string;
@@ -86,9 +87,19 @@ export const POST: APIRoute = async (context) => {
     }
 
     let ingestedReportsCount = 0;
+    let skippedCount = 0;
+    let autoRejectedCount = 0;
 
     for (const post of posts) {
       if (!post.postText || !post.postUrl) {
+        continue;
+      }
+
+      // Check if report already exists in database (de-duplication check)
+      const exists = await checkReportExistsByPostUrl(post.postUrl);
+      if (exists) {
+        console.log(`[Scraper Ingestion] Post already exists, skipping: "${post.postUrl}"`);
+        skippedCount++;
         continue;
       }
 
@@ -148,6 +159,22 @@ export const POST: APIRoute = async (context) => {
         }
       }
 
+      // Run AI/heuristic classification on the post caption to check if it's a real scam report
+      console.log(`\n[Scraper Ingestion] 📥 Received post: "${post.postUrl}"`);
+      const startTime = Date.now();
+      const classification = await classifyScrapedPost(post.postText, env?.GROQ_API_KEY, env?.GEMINI_API_KEY);
+      const isScamReport = classification.isScamReport;
+      const duration = Date.now() - startTime;
+
+      console.log(`[Scraper Ingestion] 🤖 AI classification finished in ${duration}ms:`);
+      console.log(`   ├─ Scam Complaint?: ${isScamReport ? 'YES ✅' : 'NO ❌'}`);
+      console.log(`   ├─ Action: ${isScamReport ? 'Sent to Pending queue' : 'Sent to Rejected queue'}`);
+      console.log(`   └─ Explanation: "${classification.explanation}"`);
+
+      if (!isScamReport) {
+        autoRejectedCount++;
+      }
+
       // Format report body content combining caption and photos as structured JSON
       const complaintBodyObj = {
         scraped: true,
@@ -156,6 +183,8 @@ export const POST: APIRoute = async (context) => {
         posterUrl: post.posterUrl || '',
         postText: post.postText.trim(),
         images: processedImages,
+        autoRejected: !isScamReport,
+        rejectionReason: !isScamReport ? classification.explanation : undefined,
       };
       const complaintBody = JSON.stringify(complaintBodyObj);
 
@@ -168,7 +197,7 @@ export const POST: APIRoute = async (context) => {
           incidentDate: post.postDate || new Date().toISOString().split('T')[0],
           complaintText: complaintBody.trim(),
           evidenceFileName: post.postUrl, // Store the post URL as the evidence key/filename
-          status: 'PENDING',
+          status: isScamReport ? 'PENDING' : 'REJECTED',
           createdAt: new Date().toISOString(),
           source: 'SCRAPED',
         };
@@ -181,8 +210,10 @@ export const POST: APIRoute = async (context) => {
     return new Response(
       JSON.stringify({
         ok: true,
-        message: `Successfully ingested ${ingestedReportsCount} reports from ${posts.length} posts.`,
+        message: `Processed ${posts.length} posts.`,
         count: ingestedReportsCount,
+        skipped: skippedCount,
+        rejected: autoRejectedCount,
       }),
       {
         status: 201,
