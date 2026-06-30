@@ -82,76 +82,116 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
   if (db) {
     // ── Cloudflare D1 Query ──
     const matchMode = mode === 'seller' ? 'BUYER' : 'SELLER'; // seller searches for buyers, buyer searches for sellers
-    const entityResult = await db
+    const entitiesResult = await db
       .prepare(
         `SELECT * FROM entities 
          WHERE type = ? 
-         AND (normalized = ? OR instr(?, normalized) > 0)`
+         AND (normalized = ? OR instr(normalized, ?) > 0 OR instr(?, normalized) > 0)`
       )
-      .bind(matchMode, nq, nq)
-      .first();
+      .bind(matchMode, nq, nq, nq)
+      .all();
 
-    if (entityResult) {
-      // Fetch associated reports
-      const reports = await db
-        .prepare(`SELECT * FROM reports WHERE entity_id = ? AND status = 'APPROVED' ORDER BY created_at DESC`)
-        .bind(entityResult.id)
-        .all();
+    if (entitiesResult && entitiesResult.results && entitiesResult.results.length > 0) {
+      const results = entitiesResult.results;
+      if (results.length === 1) {
+        const entityResult = results[0];
+        // Fetch associated reports
+        const reports = await db
+          .prepare(`SELECT * FROM reports WHERE entity_id = ? AND status = 'APPROVED' ORDER BY created_at DESC`)
+          .bind(entityResult.id)
+          .all();
 
-      return {
-        found: true,
-        entity: {
-          id: entityResult.id,
-          name: entityResult.identifier,
-          type: entityResult.type === 'BUYER' ? 'Buyer Phone Number' : entityResult.type,
-          risk: entityResult.risk,
-          complaintCount: entityResult.complaint_count,
-          firstSeen: entityResult.first_seen,
-          updatedAt: entityResult.updated_at,
-          reports: reports.results.map((r: any) => ({
-            id: r.id,
-            date: r.incident_date,
-            summary: r.complaint_text,
-            source: r.source === 'CROWDSOURCED' ? 'crowdsourced' : 'scraped',
-            evidenceFileName: r.evidence_r2_key,
+        return {
+          found: true,
+          isMultiple: false,
+          entity: {
+            id: entityResult.id,
+            name: entityResult.identifier,
+            type: entityResult.type === 'BUYER' ? 'Buyer Phone Number' : entityResult.type,
+            risk: entityResult.risk,
+            complaintCount: entityResult.complaint_count,
+            firstSeen: entityResult.first_seen,
+            updatedAt: entityResult.updated_at,
+            reports: reports.results.map((r: any) => ({
+              id: r.id,
+              date: r.incident_date,
+              summary: r.complaint_text,
+              source: r.source === 'CROWDSOURCED' ? 'crowdsourced' : 'scraped',
+              evidenceFileName: r.evidence_r2_key,
+            })),
+            aiFlags: [], // Populated separately or from metadata
+          },
+        };
+      } else {
+        // Multiple matches
+        return {
+          found: true,
+          isMultiple: true,
+          entities: results.map((e: any) => ({
+            id: e.id,
+            name: e.identifier,
+            type: e.type === 'BUYER' ? 'Buyer Phone Number' : e.type,
+            risk: e.risk,
+            complaintCount: e.complaint_count,
+            firstSeen: e.first_seen,
+            updatedAt: e.updated_at,
           })),
-          aiFlags: [], // Populated separately or from metadata
-        },
-      };
+        };
+      }
     }
   } else {
     // ── Local Mock Fallback ──
-    const match = mockDb.entities.find((e: Entity) => {
+    const matches = mockDb.entities.filter((e: Entity) => {
       const modeMatch = mode === 'seller' ? e.mode === 'seller' : e.mode !== 'seller';
       const textMatch = normalize(e.identifier).includes(nq) || nq.includes(normalize(e.identifier));
       return modeMatch && textMatch;
     });
 
-    if (match) {
-      const reports = mockDb.reports.filter(
-        (r: DatabaseReport) => r.entityId === match.id && r.status === 'APPROVED'
-      );
-      return {
-        found: true,
-        entity: {
-          id: match.id,
-          name: match.identifier,
-          type: match.type,
-          risk: match.risk,
-          complaintCount: reports.length,
-          firstSeen: match.firstSeen,
-          updatedAt: match.updatedAt,
-          reports: reports.map((r: DatabaseReport) => ({
-            id: r.id,
-            date: r.incidentDate,
-            summary: r.complaintText,
-            source: r.source.toLowerCase(),
-            evidenceFileName: r.evidenceFileName,
-            evidenceDataUrl: r.evidenceDataUrl,
+    if (matches.length > 0) {
+      if (matches.length === 1) {
+        const match = matches[0];
+        const reports = mockDb.reports.filter(
+          (r: DatabaseReport) => r.entityId === match.id && r.status === 'APPROVED'
+        );
+        return {
+          found: true,
+          isMultiple: false,
+          entity: {
+            id: match.id,
+            name: match.identifier,
+            type: match.type,
+            risk: match.risk,
+            complaintCount: reports.length,
+            firstSeen: match.firstSeen,
+            updatedAt: match.updatedAt,
+            reports: reports.map((r: DatabaseReport) => ({
+              id: r.id,
+              date: r.incidentDate,
+              summary: r.complaintText,
+              source: r.source.toLowerCase(),
+              evidenceFileName: r.evidenceFileName,
+              evidenceDataUrl: r.evidenceDataUrl,
+            })),
+            aiFlags: match.aiFlags || [],
+          },
+        };
+      } else {
+        return {
+          found: true,
+          isMultiple: true,
+          entities: matches.map((m: any) => ({
+            id: m.id,
+            name: m.identifier,
+            type: m.type,
+            risk: m.risk,
+            complaintCount: mockDb.reports.filter(
+              (r: DatabaseReport) => r.entityId === m.id && r.status === 'APPROVED'
+            ).length,
+            firstSeen: m.firstSeen,
+            updatedAt: m.updatedAt,
           })),
-          aiFlags: match.aiFlags || [],
-        },
-      };
+        };
+      }
     }
   }
 

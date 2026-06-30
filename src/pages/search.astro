@@ -28,14 +28,86 @@ const riskStyles = {
   safe:      { color: 'var(--color-safe)', bg: 'var(--color-safe-glow)', border: 'rgba(0,102,84,0.15)',   label: 'SAFE',           icon: '✅' },
 } as const;
 
-const risk = result?.entity?.risk as keyof typeof riskStyles | undefined;
-const style = risk ? riskStyles[risk] : null;
 const isSeller = mode === 'seller';
+const risk = (!result?.isMultiple && result?.entity?.risk) as keyof typeof riskStyles | undefined;
+const style = risk ? riskStyles[risk] : null;
+
+function parseScrapedComplaint(text: string) {
+  const result = {
+    originalUrl: '',
+    posterName: '',
+    posterProfile: '',
+    caption: text || '',
+    photos: [] as string[]
+  };
+
+  if (!text) return result;
+
+  // 1. Try JSON Parsing first
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.scraped) {
+        result.originalUrl = parsed.postUrl || '';
+        result.posterName = parsed.posterName || '';
+        result.posterProfile = parsed.posterUrl || '';
+        result.caption = parsed.postText || '';
+        result.photos = parsed.images || [];
+        return result;
+      }
+    } catch (e) {
+      console.error("JSON parse failed, falling back to regex", e);
+    }
+  }
+
+  // 2. Fallback to Regex Parser (normalized CRLF to LF)
+  const normalized = text.replace(/\r\n/g, '\n').trim();
+  if (!normalized.includes('[Scraped from')) {
+    return result;
+  }
+
+  // Extract Original Post URL
+  const postUrlMatch = normalized.match(/\[Scraped from [^\]]+\] \((https?:\/\/[^\)]+)\)/);
+  if (postUrlMatch) {
+    result.originalUrl = postUrlMatch[1];
+  }
+
+  // Extract Poster Name
+  const posterNameMatch = normalized.match(/Poster: ([^\n]+)/);
+  if (posterNameMatch) {
+    result.posterName = posterNameMatch[1].trim();
+  }
+
+  // Extract Poster Profile URL
+  const posterProfileMatch = normalized.match(/Poster Profile: ([^\n]+)/);
+  if (posterProfileMatch) {
+    result.posterProfile = posterProfileMatch[1].trim();
+  }
+
+  // Extract Captured Photos
+  const photoRegex = /Photo \d+: (https?:\/\/[^\s\n]+)/g;
+  let match;
+  while ((match = photoRegex.exec(normalized)) !== null) {
+    result.photos.push(match[1]);
+  }
+
+  // Extract actual caption
+  let captionText = normalized;
+  captionText = captionText.replace(/\[Scraped from [^\]]+\] \([^\)]+\)\n?/, '');
+  captionText = captionText.replace(/Poster: [^\n]+\n?/, '');
+  captionText = captionText.replace(/Poster Profile: [^\n]+\n?/, '');
+  captionText = captionText.replace(/--- Captured Photos ---[\s\S]*$/, '');
+  captionText = captionText.replace(/--- Visible Comments ---[\s\S]*$/, '');
+
+  result.caption = captionText.trim();
+  return result;
+}
 ---
 
 <Layout
-  title={result?.found ? `${result.entity.name} — ScamShield BD` : `"${query}" — Not Found — ScamShield BD`}
-  description={result?.found ? `ScamShield BD: ${result.entity.name} has ${result.entity.complaintCount} fraud reports. Risk level: ${result.entity.risk}.` : `No fraud reports found for "${query}" on ScamShield BD.`}
+  title={result?.found ? (result.isMultiple ? `"${query}" matches — ScamShield BD` : `${result.entity.name} — ScamShield BD`) : `"${query}" — Not Found — ScamShield BD`}
+  description={result?.found ? (result.isMultiple ? `Multiple matches found for "${query}" on ScamShield BD.` : `ScamShield BD: ${result.entity.name} has ${result.entity.complaintCount} fraud reports. Risk level: ${result.entity.risk}.`) : `No fraud reports found for "${query}" on ScamShield BD.`}
 >
 
   <div style="max-width: 800px; margin: 0 auto; padding: 40px 16px;">
@@ -55,7 +127,72 @@ const isSeller = mode === 'seller';
       </div>
     )}
 
-    {!error && result?.found && style && (
+    {!error && result?.found && result?.isMultiple && (
+      <div>
+        <div style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 32px; margin-bottom: 24px;">
+          <h1 style="font-size: 1.5rem; font-weight: 700; color: var(--color-text-primary); margin: 0 0 8px;">
+            Multiple Matches Found
+          </h1>
+          <p style="font-size: 14px; color: var(--color-text-secondary); margin: 0;">
+            We found {result.entities.length} profiles matching <strong style="font-family: var(--font-mono); color: var(--color-text-primary);">"{query}"</strong>. Select one below to view their detailed fraud reports:
+          </p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+          {result.entities.map((ent: any) => {
+            const entRisk = ent.risk as keyof typeof riskStyles;
+            const entStyle = riskStyles[entRisk] || riskStyles.safe;
+            return (
+              <a
+                href={`/search?q=${encodeURIComponent(ent.name)}&mode=${mode}`}
+                style="display: flex; align-items: center; justify-content: space-between; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; transition: all 0.2s;"
+                onmouseover="this.style.borderColor='var(--color-border-light)'; this.style.transform='translateY(-2px)';"
+                onmouseout="this.style.borderColor='var(--color-border)'; this.style.transform='translateY(0)';"
+              >
+                <div>
+                  <h3 style="font-size: 16px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 6px; font-family: var(--font-mono);">
+                    {ent.name}
+                  </h3>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 11px; color: var(--color-text-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-pill); padding: 2px 8px;">
+                      {ent.type}
+                    </span>
+                    {ent.firstSeen && (
+                      <span style="font-size: 11px; color: var(--color-text-muted);">
+                        First seen {ent.firstSeen}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 16px;">
+                  <span style={`font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 4px 10px; border-radius: var(--radius-pill); background: ${entStyle.bg}; color: ${entStyle.color}; border: 1px solid ${entStyle.border};`}>
+                    {entStyle.label}
+                  </span>
+                  <div style="text-align: right; min-width: 60px;">
+                    <div style={`font-size: 1.5rem; font-weight: 800; color: ${entStyle.color}; font-family: var(--font-mono); line-height: 1;`}>
+                      {ent.complaintCount}
+                    </div>
+                    <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em;">reports</div>
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+
+        <div style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px;">
+          <p style="margin: 0; font-size: 14px; color: var(--color-text-secondary);">
+            Don't see the specific profile you are looking for?
+          </p>
+          <a href={`/report?entity=${encodeURIComponent(query)}&mode=${mode}`} style="font-size: 13px; font-weight: 600; color: white; background: var(--color-danger); padding: 10px 20px; border-radius: var(--radius-pill); text-decoration: none; white-space: nowrap; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            + Create New Report
+          </a>
+        </div>
+      </div>
+    )}
+
+    {!error && result?.found && !result?.isMultiple && style && (
       <div>
         <!-- Risk Header Card -->
         <div style={`background: ${style.bg}; border: 1px solid ${style.border}; border-radius: var(--radius-xl); padding: 32px; margin-bottom: 24px;`}>
@@ -106,22 +243,81 @@ const isSeller = mode === 'seller';
           </div>
           <div>
             {result.entity.reports.map((report: any, i: number) => {
-              let displaySummary = report.summary || '';
-              if (displaySummary.trim().startsWith('{') && displaySummary.trim().endsWith('}')) {
-                try {
-                  const parsed = JSON.parse(displaySummary);
-                  displaySummary = parsed.postText || displaySummary;
-                } catch {}
+              const rawText = report.summary || '';
+              const isScraped = rawText.trim().startsWith('[Scraped from') || (rawText.trim().startsWith('{') && rawText.trim().endsWith('}'));
+              
+              let displaySummary = rawText;
+              let photoUrls: string[] = [];
+              let originalUrl = '';
+              let posterName = '';
+
+              if (isScraped) {
+                const parsed = parseScrapedComplaint(rawText);
+                displaySummary = parsed.caption || '(No description)';
+                photoUrls = parsed.photos || [];
+                originalUrl = parsed.originalUrl || '';
+                posterName = parsed.posterName || '';
+              } else {
+                const photoRegex = /Photo \d+: (https?:\/\/[^\s\n]+)/g;
+                let match;
+                while ((match = photoRegex.exec(rawText)) !== null) {
+                  photoUrls.push(match[1]);
+                }
               }
+
+              // Build evidence link / proxy URL
+              const isLink = report.evidenceFileName && report.evidenceFileName.startsWith('http');
+              const isR2Key = report.evidenceFileName && !isLink;
+              const displayImgUrl = isR2Key ? `/api/evidence?key=${encodeURIComponent(report.evidenceFileName)}` : (isLink ? report.evidenceFileName : '');
+
               return (
-                <div style={`padding: 20px 24px; ${i < result.entity.reports.length - 1 ? 'border-bottom: 1px solid var(--color-border);' : ''}`}>
-                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <div style={`padding: 24px; ${i < result.entity.reports.length - 1 ? 'border-bottom: 1px solid var(--color-border);' : ''}`}>
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
                     <span style="font-size: 11px; color: var(--color-text-muted); font-family: var(--font-mono);">{report.date}</span>
                     <span style={`font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; ${report.source === 'crowdsourced' ? 'background: rgba(6,214,160,0.08); color: var(--color-safe); border: 1px solid rgba(6,214,160,0.2);' : 'background: rgba(123,104,238,0.08); color: var(--color-accent); border: 1px solid rgba(123,104,238,0.2);'}`}>
                       {report.source === 'crowdsourced' ? '✓ Verified Report' : 'Community Post'}
                     </span>
+                    {posterName && (
+                      <span style="font-size: 11px; color: var(--color-text-muted);">
+                        Poster: <strong style="color: var(--color-text-secondary);">{posterName}</strong>
+                      </span>
+                    )}
+                    {originalUrl && (
+                      <a href={originalUrl} target="_blank" style="font-size: 11px; color: var(--color-accent); text-decoration: none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                        Original Post ↗
+                      </a>
+                    )}
                   </div>
-                  <p style="margin: 0; font-size: 14px; color: var(--color-text-primary); line-height: 1.6; white-space: pre-wrap;">{displaySummary}</p>
+
+                  <p style="margin: 0 0 14px; font-size: 14px; color: var(--color-text-primary); line-height: 1.6; white-space: pre-wrap;">{displaySummary}</p>
+
+                  {/* Primary Evidence File or Screenshot */}
+                  {displayImgUrl && (
+                    <div style="margin-top: 14px; margin-bottom: 14px;">
+                      <div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">Evidence File / Screenshot</div>
+                      <a href={displayImgUrl} target="_blank" title="Click to view full size" style="display: inline-block;">
+                        <img src={displayImgUrl} alt="Evidence Screenshot" style="max-height: 240px; max-width: 100%; border-radius: 8px; border: 1px solid var(--color-border); cursor: zoom-in;" />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Scraped Photos Thumbnail Gallery */}
+                  {photoUrls.length > 0 && (
+                    <div style="margin-top: 14px;">
+                      <div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Scraped Attachments ({photoUrls.length})</div>
+                      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        {photoUrls.map((url, imgIdx) => {
+                          const isAbsolute = url.startsWith('http') || url.startsWith('data:');
+                          const renderUrl = isAbsolute ? url : `/api/evidence?key=${encodeURIComponent(url)}`;
+                          return (
+                            <a href={renderUrl} target="_blank" title="Click to view full size" style="display: block; border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; background: var(--color-surface);">
+                              <img src={renderUrl} referrerpolicy="no-referrer" alt={`Attachment ${imgIdx + 1}`} style="height: 80px; width: 120px; object-fit: cover; display: block; cursor: zoom-in;" />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

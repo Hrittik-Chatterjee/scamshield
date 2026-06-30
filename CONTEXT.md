@@ -245,39 +245,22 @@ CREATE TABLE reports (
   status       TEXT DEFAULT 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED'
   reviewed_at  TEXT,
   created_at   TEXT
-);
+);## Cloudflare Setup Checklist (User Must Do — Requires Their Account)
 
--- AI analysis cache (24-hour TTL)
-CREATE TABLE ai_cache (
-  entity_id    TEXT PRIMARY KEY,
-  whois_age_days INTEGER,
-  safe_browsing_ok INTEGER,           -- 1 = safe, 0 = flagged
-  urlscan_verdict TEXT,
-  web_search_summary TEXT,
-  flags_json   TEXT,                  -- JSON array of detected fraud flags
-  risk_verdict TEXT,
-  analyzed_at  TEXT                   -- ISO timestamp; expire after 24h
-);
-```
-
----
-
-## Cloudflare Setup Checklist (User Must Do — Requires Their Account)
-
-- [ ] Create Cloudflare account at cloudflare.com
-- [ ] Create D1 database named `scamshield-db`
-- [ ] Create R2 bucket named `scamshield-evidence`
-- [ ] Link GitHub repo to Cloudflare Pages
-- [ ] Add D1 binding in Pages settings: variable name `DB`, database `scamshield-db`
-- [ ] Add R2 binding in Pages settings: variable name `EVIDENCE_BUCKET`, bucket `scamshield-evidence`
-- [ ] Add environment secrets in Pages settings:
-  - `ADMIN_SECRET_KEY` — any strong random string (for admin dashboard auth)
-  - `SCRAPE_INGEST_KEY` — any strong random string (for browser extension auth)
-  - `GROQ_API_KEY`
-  - `GEMINI_API_KEY`
-  - `BING_SEARCH_KEY`
-  - `GOOGLE_SAFE_BROWSING_KEY`
-  - `URLSCAN_API_KEY`
+- [x] Create Cloudflare account at cloudflare.com
+- [x] Create D1 database named `scamshield-db`
+- [x] Create R2 bucket named `scamshield-evidence`
+- [x] Link GitHub repo to Cloudflare Pages
+- [x] Add D1 binding in Pages settings: variable name `DB`, database `scamshield-db`
+- [x] Add R2 binding in Pages settings: variable name `EVIDENCE_BUCKET`, bucket `scamshield-evidence`
+- [x] Add environment secrets in Pages settings:
+  - [x] `ADMIN_SECRET_KEY` — any strong random string (for admin dashboard auth)
+  - [x] `SCRAPE_INGEST_KEY` — any strong random string (for browser extension auth)
+  - [x] `GROQ_API_KEY`
+  - [ ] `GEMINI_API_KEY`
+  - [ ] `BING_SEARCH_KEY`
+  - [ ] `GOOGLE_SAFE_BROWSING_KEY`
+  - [ ] `URLSCAN_API_KEY`
 
 ---
 
@@ -303,17 +286,20 @@ npx astro dev --port 4321
 6. **Phone number normalization** — Strip spaces, dashes, leading 0, country code (+880) for consistent matching.
 7. **Groq → Gemini → Workers AI fallback chain** — Never fail silently; always return something to the user.
 8. **Browser extension is a separate project** — Not inside the Astro repo. Communicates only via the `/api/scrape-ingest` HTTP endpoint.
-
 9. **Vite Watcher .wrangler Exclude** — Excluded the `.wrangler` state folder in `astro.config.mjs` to stop SQLite updates from initiating infinite watcher-triggered hot module reloads.
 10. **Client-Only React Components** — Forced dynamic React components to load via `client:only="react"` to resolve SSR duplicate package hook resolution bugs in local dev.
 11. **Extension CORS Bypass via Message Passing** — Delegated API queries (ingestion and connection validation) from the extension content script and popup script to the background service worker using `browser.runtime.sendMessage`. This bypasses browser-enforced page CORS and Astro dev-server cross-site security checks by utilising extension host permissions.
-
 12. **Comment Duplication & Scraper Refinements** — Overhauled the extension container selection to start from post-specific indicator elements and climb up to the feed item child (`closest('[role="feed"] > *')`). This resolves the issue where comments (which still use `role="article"`) were matched as top-level posts on Facebook Group feeds since Facebook removed `role="article"` from posts.
 13. **Dynamic Scraped Photo Extraction** — Configured the admin review card to parse photo links inside scraped complaint text and render them as a thumbnail gallery grid on the fly, using `referrerpolicy="no-referrer"` to bypass Facebook CDN referrer-based hotlinking protection.
 14. **Local Cloudflare R2 Bucket Simulation** — Added an `EVIDENCE_BUCKET` binding in `wrangler.jsonc` to automatically spin up a local mock R2 store in `.wrangler/state/v3/r2/` during local development, preventing reliance on hotlinking expiring Facebook CDN links.
 15. **Server-Side Ingestion Downloader** — Implemented server-side image downloading in `src/pages/api/scrape-ingest.ts` to download scraped image URLs on the server, upload them to R2, and save their keys in the database.
 16. **Private Evidence Delivery Proxy** — Created the `src/pages/api/evidence.ts` proxy endpoint to serve files stored in the private R2 bucket securely with caching.
 17. **Admin Lightbox, Image Navigation, and Permanent Delete** — Added a CSS/JS lightbox modal to preview evidence and scraped photos inline on the admin dashboard, preventing disruptive external redirects. Added **image navigation** to the lightbox, enabling next/prev buttons, keyboard arrow key listeners (left/right), and a dynamic counter (e.g., `1 / 4`) to easily cycle through all evidence and scraped photos for each report. Integrated a permanent delete button on all cards that wipes reports and updates the corresponding entities' complaint counts.
+18. **Multi-Entity Substring Match** — Upgraded search matching to support dynamic case-insensitive substring checks and multiple matches selectors, preventing single first-row selection errors.
+
+---
+
+*Last updated: Live hosting completed on Cloudflare. Case-insensitive substring matching and multiple-matches selection layout implemented.*ightbox, enabling next/prev buttons, keyboard arrow key listeners (left/right), and a dynamic counter (e.g., `1 / 4`) to easily cycle through all evidence and scraped photos for each report. Integrated a permanent delete button on all cards that wipes reports and updates the corresponding entities' complaint counts.
 
 ---
 
