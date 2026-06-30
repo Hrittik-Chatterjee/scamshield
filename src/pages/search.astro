@@ -150,9 +150,14 @@ function parseScrapedComplaint(text: string) {
                 onmouseout="this.style.borderColor='var(--color-border)'; this.style.transform='translateY(0)';"
               >
                 <div>
-                  <h3 style="font-size: 16px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 6px; font-family: var(--font-mono); word-break: break-all;">
-                    {ent.name}
+                  <h3 style="font-size: 16px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 6px; font-family: var(--font-sans); word-break: break-all;">
+                    {ent.name.startsWith('http') ? 'Facebook Post / Page Report' : ent.name}
                   </h3>
+                  {ent.preview && (
+                    <p style="font-size: 13px; color: var(--color-text-secondary); margin: 6px 0 10px; font-style: italic; line-height: 1.4; max-width: 680px;">
+                      "{ent.preview}"
+                    </p>
+                  )}
                   <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 11px; color: var(--color-text-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-pill); padding: 2px 8px;">
                       {ent.type}

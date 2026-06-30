@@ -149,10 +149,31 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
         };
       } else {
         // Multiple matches
-        return {
-          found: true,
-          isMultiple: true,
-          entities: results.map((e: any) => ({
+        const entitiesWithPreviews = [];
+        for (const e of results) {
+          const report = await db
+            .prepare(`SELECT complaint_text FROM reports WHERE entity_id = ? AND status = 'APPROVED' ORDER BY created_at DESC LIMIT 1`)
+            .bind(e.id)
+            .first();
+
+          let snippet = '';
+          if (report && report.complaint_text) {
+            const rawText = report.complaint_text;
+            if (rawText.trim().startsWith('{') && rawText.trim().endsWith('}')) {
+              try {
+                const parsed = JSON.parse(rawText);
+                snippet = parsed.postText || '';
+              } catch {}
+            } else {
+              snippet = rawText;
+            }
+          }
+
+          if (snippet.length > 120) {
+            snippet = snippet.substring(0, 120) + '...';
+          }
+
+          entitiesWithPreviews.push({
             id: e.id,
             name: e.identifier,
             type: e.type === 'BUYER' ? 'Buyer Phone Number' : e.type,
@@ -160,7 +181,14 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
             complaintCount: e.complaint_count,
             firstSeen: e.first_seen,
             updatedAt: e.updated_at,
-          })),
+            preview: snippet,
+          });
+        }
+
+        return {
+          found: true,
+          isMultiple: true,
+          entities: entitiesWithPreviews,
         };
       }
     }
@@ -217,20 +245,43 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
           },
         };
       } else {
-        return {
-          found: true,
-          isMultiple: true,
-          entities: matches.map((m: any) => ({
+        const entitiesWithPreviews = matches.map((m: any) => {
+          const matchingReports = mockDb.reports.filter(
+            (r: DatabaseReport) => r.entityId === m.id && r.status === 'APPROVED'
+          );
+          let snippet = '';
+          if (matchingReports.length > 0) {
+            const rawText = matchingReports[0].complaintText;
+            if (rawText.trim().startsWith('{') && rawText.trim().endsWith('}')) {
+              try {
+                const parsed = JSON.parse(rawText);
+                snippet = parsed.postText || '';
+              } catch {}
+            } else {
+              snippet = rawText;
+            }
+          }
+
+          if (snippet.length > 120) {
+            snippet = snippet.substring(0, 120) + '...';
+          }
+
+          return {
             id: m.id,
             name: m.identifier,
             type: m.type,
             risk: m.risk,
-            complaintCount: mockDb.reports.filter(
-              (r: DatabaseReport) => r.entityId === m.id && r.status === 'APPROVED'
-            ).length,
+            complaintCount: matchingReports.length,
             firstSeen: m.firstSeen,
             updatedAt: m.updatedAt,
-          })),
+            preview: snippet,
+          };
+        });
+
+        return {
+          found: true,
+          isMultiple: true,
+          entities: entitiesWithPreviews,
         };
       }
     }
