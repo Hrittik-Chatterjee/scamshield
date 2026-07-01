@@ -30,3 +30,8 @@ pnpm-debug.log*
 # wrangler & local secrets
 .wrangler/
 .dev.vars
+
+# local SQL dumps & scratch pads
+migration.sql
+restore.sql
+scratch/
