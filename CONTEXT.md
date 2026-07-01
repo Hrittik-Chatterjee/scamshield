@@ -296,13 +296,10 @@ npx astro dev --port 4321
 16. **Private Evidence Delivery Proxy** — Created the `src/pages/api/evidence.ts` proxy endpoint to serve files stored in the private R2 bucket securely with caching.
 17. **Admin Lightbox, Image Navigation, and Permanent Delete** — Added a CSS/JS lightbox modal to preview evidence and scraped photos inline on the admin dashboard, preventing disruptive external redirects. Added **image navigation** to the lightbox, enabling next/prev buttons, keyboard arrow key listeners (left/right), and a dynamic counter (e.g., `1 / 4`) to easily cycle through all evidence and scraped photos for each report. Integrated a permanent delete button on all cards that wipes reports and updates the corresponding entities' complaint counts.
 18. **Multi-Entity Substring Match** — Upgraded search matching to support dynamic case-insensitive substring checks and multiple matches selectors, preventing single first-row selection errors.
+19. **Dynamic Counters & Refined Facebook URL Normalization** — Switched complaint counts to be calculated dynamically from active reports to prevent badge mismatches, and normalized Facebook URLs to their base page/group path (but kept Facebook group post permalinks unique so they aren't merged under the group home page). Added dynamic page/phone identifier extraction from scraped post text to group reports under their true scammer targets.
+
+20. **Mobile Responsiveness Overhaul** — Refactored styling systems in base layout, search bar, home page, report form, search results, and admin dashboard to use standard responsive Tailwind CSS v4 classes and flex-direction rules, replacing rigid inline styles to guarantee support for mobile viewports down to 320px width.
 
 ---
 
-*Last updated: Live hosting completed on Cloudflare. Case-insensitive substring matching and multiple-matches selection layout implemented.*ightbox, enabling next/prev buttons, keyboard arrow key listeners (left/right), and a dynamic counter (e.g., `1 / 4`) to easily cycle through all evidence and scraped photos for each report. Integrated a permanent delete button on all cards that wipes reports and updates the corresponding entities' complaint counts.
-
----
-
-*Last updated: Phase 6 complete. Admin dashboard polished with inline image lightbox, image navigation, and permanent delete functionality.*
-
-
+*Last updated: Overhauled style declarations, grids, and flex components across the codebase to implement complete mobile responsiveness and visual compatibility on screens under 640px.*

@@ -127,7 +127,7 @@ export default function ReportForm({ prefillEntity = '', prefillMode = 'buyer' }
   // ── Step: submitted ─────────────────────────────────────────────────
   if (step === 'submitted') {
     return (
-      <div style={{ ...card, textAlign: 'center', padding: '48px 32px' }}>
+      <div style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }} className="p-6 sm:p-10">
         <div style={{ fontSize: '3rem', marginBottom: '16px' }}>✅</div>
         <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--color-safe)', textTransform: 'uppercase', marginBottom: '12px' }}>
           Report Submitted
@@ -151,14 +151,14 @@ export default function ReportForm({ prefillEntity = '', prefillMode = 'buyer' }
   // ── Step: type ───────────────────────────────────────────────────────
   if (step === 'type') {
     return (
-      <div style={card}>
+      <div style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)' }} className="p-5 sm:p-8">
         <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-primary)', margin: '0 0 8px' }}>
           Who are you reporting?
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', margin: '0 0 28px', lineHeight: 1.5 }}>
           Select the type of report you want to file.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '28px' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-7">
           {(['BUYER', 'SELLER'] as ReporterType[]).map(type => {
             const active = reporterType === type;
             const isBuyerOpt = type === 'BUYER';
@@ -205,7 +205,7 @@ export default function ReportForm({ prefillEntity = '', prefillMode = 'buyer' }
   // ── Step: details ────────────────────────────────────────────────────
   if (step === 'details') {
     return (
-      <div style={card}>
+      <div style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)' }} className="p-5 sm:p-8">
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '24px' }}>
           <span style={{ fontSize: '20px' }}>{isBuyer ? '🛒' : '🏪'}</span>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0 }}>
@@ -237,7 +237,7 @@ export default function ReportForm({ prefillEntity = '', prefillMode = 'buyer' }
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label style={label}>Date of Incident *</label>
               <input style={input} type="date" value={incidentDate} onChange={e => setIncidentDate(e.target.value)} max={new Date().toISOString().split('T')[0]} />
@@ -282,7 +282,7 @@ export default function ReportForm({ prefillEntity = '', prefillMode = 'buyer' }
 
   // ── Step: evidence ────────────────────────────────────────────────────
   return (
-    <div style={card}>
+    <div style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)' }} className="p-5 sm:p-8">
       <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-primary)', margin: '0 0 8px' }}>
         Upload Evidence Screenshot
       </h2>
@@ -302,13 +302,13 @@ export default function ReportForm({ prefillEntity = '', prefillMode = 'buyer' }
         style={{
           border: `2px dashed ${evidenceFile ? 'var(--color-safe)' : 'var(--color-border)'}`,
           borderRadius: 'var(--radius-lg)',
-          padding: '32px',
           textAlign: 'center',
           cursor: 'pointer',
           background: evidenceFile ? 'rgba(6,214,160,0.04)' : 'var(--color-surface)',
           transition: 'all 0.2s',
           marginBottom: '20px',
         }}
+        className="p-6 sm:p-8"
       >
         {evidencePreview ? (
           <div>

@@ -59,10 +59,67 @@ g.__mock_db.ai_cache = g.__mock_db.ai_cache || {} as Record<string, AICacheEntry
 
 const mockDb = g.__mock_db;
 
+// Helper to extract clean base Facebook URL (Page, Group, or Profile ID)
+export function cleanFacebookUrl(url: string): string {
+  let cleaned = url.trim();
+  if (!cleaned) return cleaned;
+  
+  // If it's not a URL (no dot or slash), return as-is
+  if (!cleaned.includes('.') && !cleaned.includes('/')) {
+    return cleaned;
+  }
+  
+  try {
+    let testUrl = cleaned;
+    if (!/^https?:\/\//i.test(testUrl)) {
+      testUrl = 'https://' + testUrl;
+    }
+    const parsed = new URL(testUrl);
+    const host = parsed.hostname.toLowerCase();
+    
+    if (host.includes('facebook.com') || host.includes('fb.com')) {
+      let path = parsed.pathname;
+      
+      // Handle groups
+      const groupMatch = path.match(/^\/groups\/([^\/]+)/i);
+      if (groupMatch) {
+        // If it's a specific post inside a group, do NOT normalize it to the group URL
+        if (path.includes('/permalink/') || path.includes('/posts/')) {
+          return url;
+        }
+        return `https://www.facebook.com/groups/${groupMatch[1]}`;
+      }
+      
+      // Handle profile.php or permalink.php with search param 'id'
+      if (path.toLowerCase() === '/profile.php' || path.toLowerCase() === '/permalink.php') {
+        const idParam = parsed.searchParams.get('id');
+        if (idParam) {
+          return `https://www.facebook.com/profile.php?id=${idParam}`;
+        }
+      }
+      
+      // Handle pages and other profiles
+      const segments = path.split('/').filter(Boolean);
+      if (segments.length > 0) {
+        const firstSegment = segments[0];
+        const systemSegments = ['photo', 'photo.php', 'permalink.php', 'profile.php', 'groups', 'marketplace', 'events', 'watch', 'reel'];
+        if (!systemSegments.includes(firstSegment.toLowerCase())) {
+          return `https://www.facebook.com/${firstSegment}`;
+        }
+      }
+    }
+  } catch (e) {
+    // Return original if URL parsing fails
+  }
+  return url;
+}
+
 // Normalize key
 function normalize(s: string): string {
-  return s.toLowerCase().replace(/[\s\-().]/g, '');
+  const base = cleanFacebookUrl(s);
+  return base.toLowerCase().replace(/[\s\-().]/g, '');
 }
+
 
 // Helper to determine risk dynamically based on reports
 function calculateRisk(count: number): 'confirmed' | 'high' | 'caution' | 'safe' {
@@ -126,6 +183,8 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
           .bind(entityResult.id)
           .all();
 
+        const complaintCount = reports.results.length;
+
         return {
           found: true,
           isMultiple: false,
@@ -133,8 +192,8 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
             id: entityResult.id,
             name: entityResult.identifier,
             type: entityResult.type === 'BUYER' ? 'Buyer Phone Number' : entityResult.type,
-            risk: entityResult.risk,
-            complaintCount: entityResult.complaint_count,
+            risk: calculateRisk(complaintCount),
+            complaintCount,
             firstSeen: entityResult.first_seen,
             updatedAt: entityResult.updated_at,
             reports: reports.results.map((r: any) => ({
@@ -155,6 +214,12 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
             .prepare(`SELECT complaint_text FROM reports WHERE entity_id = ? AND status = 'APPROVED' ORDER BY created_at DESC LIMIT 1`)
             .bind(e.id)
             .first();
+
+          const countResult = await db
+            .prepare(`SELECT COUNT(*) as cnt FROM reports WHERE entity_id = ? AND status = 'APPROVED'`)
+            .bind(e.id)
+            .first();
+          const complaintCount = countResult ? (countResult.cnt as number) : 0;
 
           let snippet = '';
           if (report && report.complaint_text) {
@@ -177,8 +242,8 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
             id: e.id,
             name: e.identifier,
             type: e.type === 'BUYER' ? 'Buyer Phone Number' : e.type,
-            risk: e.risk,
-            complaintCount: e.complaint_count,
+            risk: calculateRisk(complaintCount),
+            complaintCount: complaintCount,
             firstSeen: e.first_seen,
             updatedAt: e.updated_at,
             preview: snippet,
@@ -443,12 +508,13 @@ export async function updateReportStatus(reportId: string, action: 'approve' | '
         } else {
           const newId = crypto.randomUUID();
           const risk = calculateRisk(1);
+          const cleanIdentifier = cleanFacebookUrl(identifier);
           await db
             .prepare(
               `INSERT INTO entities (id, type, identifier, normalized, risk, complaint_count, first_seen, updated_at)
                VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
             )
-            .bind(newId, type, identifier, nq, risk, now, now)
+            .bind(newId, type, cleanIdentifier, nq, risk, now, now)
             .run();
           // Link report to the newly created entity
           await db.prepare(`UPDATE reports SET entity_id = ? WHERE id = ?`).bind(newId, reportId).run();
@@ -479,9 +545,10 @@ export async function updateReportStatus(reportId: string, action: 'approve' | '
           mockDb.entities[existingIndex].updatedAt = now;
         } else {
           const newId = crypto.randomUUID();
+          const cleanIdentifier = cleanFacebookUrl(identifier);
           const entity: Entity = {
             id: newId,
-            identifier,
+            identifier: cleanIdentifier,
             normalized: nq,
             type: isBuyerReport ? 'Facebook Shop' : 'Buyer Phone Number',
             risk: 'caution',

@@ -36,6 +36,40 @@ function extractPhoneNumbers(text: string): ScrapedIdentifier[] {
   return identifiers;
 }
 
+function extractFacebookUrls(text: string): ScrapedIdentifier[] {
+  const identifiers: ScrapedIdentifier[] = [];
+  // Regex to match facebook.com/identifier or fb.com/identifier
+  const fbRegex = /(?:https?:\/\/)?(?:www\.|m\.)?(?:facebook\.com|fb\.com)\/[a-zA-Z0-9_.-]+/gi;
+  const matches = text.match(fbRegex);
+  if (matches) {
+    const uniqueMatches = Array.from(new Set(matches.map(m => m.trim())));
+    for (const match of uniqueMatches) {
+      const lower = match.toLowerCase();
+      // Ignore group URLs, posts, photo URLs, and sharing links
+      if (
+        lower.includes('/groups/') || 
+        lower.includes('/permalink/') || 
+        lower.includes('/posts/') || 
+        lower.includes('/photos/') ||
+        lower.includes('/photo.php') ||
+        lower.includes('/sharer.php') ||
+        lower.includes('/share/') ||
+        lower.includes('/share.php')
+      ) {
+        continue;
+      }
+      
+      const cleanDomain = match.replace(/^(https?:\/\/)?(www\.|m\.)?/i, '');
+      if (cleanDomain.toLowerCase() === 'facebook.com' || cleanDomain.toLowerCase() === 'fb.com') {
+        continue;
+      }
+      
+      identifiers.push({ value: match, type: 'Facebook Page' });
+    }
+  }
+  return identifiers;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, X-Scrape-Key',
@@ -106,7 +140,10 @@ export const POST: APIRoute = async (context) => {
       // Collect identifiers (either pre-parsed by the extension, or extracted dynamically via regex)
       let idents = post.identifiers || [];
       if (idents.length === 0) {
-        idents = extractPhoneNumbers(post.postText);
+        idents = [
+          ...extractPhoneNumbers(post.postText),
+          ...extractFacebookUrls(post.postText)
+        ];
       }
 
       // If still no identifiers, default to using the post URL itself as a "Facebook Page/Post" tracker

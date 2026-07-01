@@ -113,12 +113,12 @@ function parseScrapedComplaint(text: string) {
   <div style="max-width: 800px; margin: 0 auto; padding: 40px 16px;">
 
     <!-- Breadcrumb -->
-    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 32px; font-size: 13px; color: var(--color-text-muted);">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 32px; font-size: 13px; color: var(--color-text-muted);" class="px-1 min-w-0">
       <a href="/" style="color: var(--color-text-muted); text-decoration: none;" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-muted)'">Home</a>
       <span>›</span>
       <span>{isSeller ? 'Buyer Check' : 'Shop Check'}</span>
       <span>›</span>
-      <span style="color: var(--color-text-secondary); font-family: var(--font-mono);">{query}</span>
+      <span style="color: var(--color-text-secondary); font-family: var(--font-mono);" class="truncate max-w-[150px] sm:max-w-none" title={query}>{query}</span>
     </div>
 
     {error && (
@@ -145,11 +145,12 @@ function parseScrapedComplaint(text: string) {
             return (
               <a
                 href={`/search?q=${encodeURIComponent(ent.name)}&mode=${mode}`}
-                style="display: flex; align-items: center; justify-content: space-between; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 20px 24px; text-decoration: none; transition: all 0.2s;"
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:px-6 sm:py-5"
+                style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); text-decoration: none; transition: all 0.2s;"
                 onmouseover="this.style.borderColor='var(--color-border-light)'; this.style.transform='translateY(-2px)';"
                 onmouseout="this.style.borderColor='var(--color-border)'; this.style.transform='translateY(0)';"
               >
-                <div>
+                <div class="min-w-0 flex-1">
                   <h3 style="font-size: 16px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 6px; font-family: var(--font-sans); word-break: break-all;">
                     {ent.name.startsWith('http') ? 'Facebook Post / Page Report' : ent.name}
                   </h3>
@@ -158,7 +159,7 @@ function parseScrapedComplaint(text: string) {
                       "{ent.preview}"
                     </p>
                   )}
-                  <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <span style="font-size: 11px; color: var(--color-text-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-pill); padding: 2px 8px;">
                       {ent.type}
                     </span>
@@ -170,11 +171,11 @@ function parseScrapedComplaint(text: string) {
                   </div>
                 </div>
 
-                <div style="display: flex; align-items: center; gap: 16px;">
+                <div class="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0" style="border-color: var(--color-border-light);">
                   <span style={`font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 4px 10px; border-radius: var(--radius-pill); background: ${entStyle.bg}; color: ${entStyle.color}; border: 1px solid ${entStyle.border};`}>
                     {entStyle.label}
                   </span>
-                  <div style="text-align: right; min-width: 80px;">
+                  <div class="text-right sm:text-right min-w-[80px]">
                     <div style={`font-size: 1.5rem; font-weight: 800; color: ${entStyle.color}; font-family: var(--font-sans); line-height: 1;`}>
                       {ent.complaintCount}
                     </div>
@@ -202,9 +203,9 @@ function parseScrapedComplaint(text: string) {
     {!error && result?.found && !result?.isMultiple && style && (
       <div>
         <!-- Risk Header Card -->
-        <div style={`background: ${style.bg}; border: 1px solid ${style.border}; border-radius: var(--radius-xl); padding: 32px; margin-bottom: 24px;`}>
-          <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
-            <div>
+        <div style={`background: ${style.bg}; border: 1px solid ${style.border}; border-radius: var(--radius-xl);`} class="p-6 sm:p-8 mb-6">
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 sm:gap-6">
+            <div class="min-w-0 flex-1">
               <div style={`font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: ${style.color}; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;`}>
                 <span style={`display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${style.color}; ${risk === 'confirmed' ? 'animation: pulse-ring 2s infinite;' : ''}`}></span>
                 {style.label}
@@ -217,9 +218,9 @@ function parseScrapedComplaint(text: string) {
                 <span style="font-size: 12px; color: var(--color-text-muted);">First seen {result.entity.firstSeen}</span>
               </div>
             </div>
-            <div style="text-align: right; flex-shrink: 0; min-width: 80px;">
-              <div style={`font-size: 3rem; font-weight: 800; color: ${style.color}; font-family: var(--font-sans); line-height: 1;`}>{result.entity.complaintCount}</div>
-              <div style="font-size: 12px; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;">
+            <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0" style="border-color: rgba(0,0,0,0.06);">
+              <div style={`font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; color: ${style.color}; font-family: var(--font-sans); line-height: 1;`} class="order-2 sm:order-1">{result.entity.complaintCount}</div>
+              <div style="font-size: 12px; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;" class="order-1 sm:order-2">
                 {result.entity.complaintCount === 1 ? 'Complaint' : 'Complaints'}
               </div>
             </div>
@@ -363,7 +364,7 @@ function parseScrapedComplaint(text: string) {
         </div>
 
         <!-- Search Again + Report -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <a href="/" style="display: block; text-align: center; padding: 14px; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; color: var(--color-text-secondary); text-decoration: none; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--color-border-light)'; this.style.color='var(--color-text-primary)'" onmouseout="this.style.borderColor='var(--color-border)'; this.style.color='var(--color-text-secondary)'">← Search Again</a>
           <a href={`/report?entity=${encodeURIComponent(query)}&mode=${mode}`} style="display: block; text-align: center; padding: 14px; background: rgba(230,57,70,0.08); border: 1px solid rgba(230,57,70,0.2); border-radius: var(--radius-lg); font-size: 14px; font-weight: 600; color: var(--color-danger); text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='rgba(230,57,70,0.12)'" onmouseout="this.style.background='rgba(230,57,70,0.08)'">Been Scammed? Report →</a>
         </div>

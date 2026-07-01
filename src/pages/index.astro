@@ -59,11 +59,11 @@ const riskConfig = {
 
   <!-- Stats Bar -->
   <section style="max-width: 900px; margin: 64px auto 0; padding: 0 16px;">
-    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--color-border); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--color-border);">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-[1px] overflow-hidden" style="background: var(--color-border); border-radius: var(--radius-lg); border: 1px solid var(--color-border);">
       {stats.map((stat) => (
-        <div style="background: var(--color-surface); padding: 28px; text-align: center;">
-          <div style="font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; color: var(--color-text-primary); font-family: var(--font-mono); letter-spacing: -0.03em;">{stat.value}</div>
-          <div style="font-size: 13px; color: var(--color-text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{stat.label}</div>
+        <div style="background: var(--color-surface); text-align: center;" class="py-5 px-3 sm:p-7">
+          <div style="font-size: clamp(1.2rem, 3vw, 2rem); font-weight: 700; color: var(--color-text-primary); font-family: var(--font-mono); letter-spacing: -0.03em;">{stat.value}</div>
+          <div style="font-size: 10px; sm:font-size: 13px; color: var(--color-text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{stat.label}</div>
         </div>
       ))}
     </div>
@@ -99,14 +99,19 @@ const riskConfig = {
       {recentScams.map((scam) => {
         const risk = riskConfig[scam.risk as keyof typeof riskConfig];
         return (
-          <a href={`/search?q=${encodeURIComponent(scam.name)}&mode=buyer`} style="display: flex; align-items: center; gap: 16px; background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px 20px; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='var(--color-card-hover)'; this.style.borderColor='var(--color-border-light)'" onmouseout="this.style.background='var(--color-card)'; this.style.borderColor='var(--color-border)'">
-            <span style={`font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 4px; white-space: nowrap; background: ${risk.bg}; color: ${risk.color}; border: 1px solid ${risk.border};`}>
-              {risk.label}
-            </span>
-            <span style="font-family: var(--font-mono); font-size: 13px; color: var(--color-text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{scam.name}</span>
-            <span style="font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">{scam.type}</span>
-            <span style="font-size: 12px; color: var(--color-danger); white-space: nowrap; font-weight: 500;">{scam.reports} report{scam.reports !== 1 ? 's' : ''}</span>
-            <span style="font-size: 11px; color: var(--color-text-muted); white-space: nowrap; display: none;" class="sm:inline">{scam.date}</span>
+          <a href={`/search?q=${encodeURIComponent(scam.name)}&mode=buyer`} class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:px-5 sm:py-4" style="background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-md); text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='var(--color-card-hover)'; this.style.borderColor='var(--color-border-light)'" onmouseout="this.style.background='var(--color-card)'; this.style.borderColor='var(--color-border)'">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <span style={`font-size: 9px; sm:font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 4px; white-space: nowrap; background: ${risk.bg}; color: ${risk.color}; border: 1px solid ${risk.border};`}>
+                {risk.label}
+              </span>
+              <span style="font-family: var(--font-mono); font-size: 13px; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" class="flex-1">{scam.name}</span>
+            </div>
+            
+            <div class="flex items-center justify-between sm:justify-end gap-4 text-xs sm:text-sm">
+              <span style="color: var(--color-text-muted);">{scam.type}</span>
+              <span style="color: var(--color-danger); font-weight: 500;">{scam.reports} report{scam.reports !== 1 ? 's' : ''}</span>
+              <span style="color: var(--color-text-muted);" class="hidden sm:inline">{scam.date}</span>
+            </div>
           </a>
         );
       })}
@@ -115,26 +120,18 @@ const riskConfig = {
 
   <!-- For Sellers CTA -->
   <section style="max-width: 900px; margin: 80px auto 0; padding: 0 16px;">
-    <div style="background: linear-gradient(135deg, rgba(123,104,238,0.08) 0%, rgba(123,104,238,0.03) 100%); border: 1px solid rgba(123,104,238,0.2); border-radius: var(--radius-xl); padding: clamp(28px, 4vw, 48px); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px;">
-      <div>
+    <div class="flex flex-col md:flex-row items-center md:items-start lg:items-center justify-between text-center md:text-left gap-6" style="background: linear-gradient(135deg, rgba(123,104,238,0.08) 0%, rgba(123,104,238,0.03) 100%); border: 1px solid rgba(123,104,238,0.2); border-radius: var(--radius-xl); padding: clamp(24px, 4vw, 48px);">
+      <div class="flex flex-col items-center md:items-start">
         <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: var(--color-accent); text-transform: uppercase; margin-bottom: 10px;">FOR BUSINESS OWNERS</div>
         <h3 style="font-size: clamp(1.1rem, 2.5vw, 1.5rem); font-weight: 700; color: var(--color-text-primary); margin: 0 0 10px;">Tired of Fake COD Orders?</h3>
         <p style="font-size: 14px; color: var(--color-text-secondary); margin: 0; max-width: 480px; line-height: 1.5;">
           Check a buyer's phone number before accepting their order. Our seller registry tracks repeat delivery-refusal scammers so you don't get burned.
         </p>
       </div>
-      <a href="/?mode=seller" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background: var(--color-accent); color: white; text-decoration: none; border-radius: var(--radius-pill); font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.2s; box-shadow: 0 4px 16px rgba(123,104,238,0.3);" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <a href="/?mode=seller" class="w-full md:w-auto justify-center" style="display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; background: var(--color-accent); color: white; text-decoration: none; border-radius: var(--radius-pill); font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.2s; box-shadow: 0 4px 16px rgba(123,104,238,0.3);" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
         🏪 Check a Buyer →
       </a>
     </div>
   </section>
 
 </Layout>
-
-<style>
-  @media (min-width: 640px) {
-    [style*="grid-template-columns: repeat(2"] {
-      grid-template-columns: repeat(4, 1fr) !important;
-    }
-  }
-</style>

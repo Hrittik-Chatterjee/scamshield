@@ -18,7 +18,7 @@ export default function SearchBar() {
   const sellerPlaceholder = 'Buyer phone number or Facebook profile link…';
 
   return (
-    <div style={{ width: '100%', maxWidth: '680px', margin: '0 auto' }}>
+    <div style={{ width: '100%', maxWidth: '680px', margin: '0 auto' }} className="px-4">
 
       {/* Mode Toggle */}
       <div style={{
@@ -33,12 +33,11 @@ export default function SearchBar() {
       }}>
         <button
           onClick={() => setMode('buyer')}
+          className="px-3 py-1.5 sm:px-5 sm:py-2 text-[11px] sm:text-xs md:text-[13px]"
           style={{
-            padding: '7px 20px',
             borderRadius: 'var(--radius-pill)',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '13px',
             fontWeight: 500,
             fontFamily: 'var(--font-sans)',
             transition: 'all 0.2s',
@@ -47,16 +46,15 @@ export default function SearchBar() {
             boxShadow: mode === 'buyer' ? '0 0 16px rgba(230,57,70,0.3)' : 'none',
           }}
         >
-          🛒 Buyer — Check a Shop
+          🛒 <span className="hidden xs:inline">Buyer — </span>Check Shop
         </button>
         <button
           onClick={() => setMode('seller')}
+          className="px-3 py-1.5 sm:px-5 sm:py-2 text-[11px] sm:text-xs md:text-[13px]"
           style={{
-            padding: '7px 20px',
             borderRadius: 'var(--radius-pill)',
             border: 'none',
             cursor: 'pointer',
-            fontSize: '13px',
             fontWeight: 500,
             fontFamily: 'var(--font-sans)',
             transition: 'all 0.2s',
@@ -65,7 +63,7 @@ export default function SearchBar() {
             boxShadow: mode === 'seller' ? '0 0 16px rgba(123,104,238,0.3)' : 'none',
           }}
         >
-          🏪 Seller — Check a Buyer
+          🏪 <span className="hidden xs:inline">Seller — </span>Check Buyer
         </button>
       </div>
 
@@ -77,7 +75,7 @@ export default function SearchBar() {
         marginBottom: '20px',
         minHeight: '18px',
         transition: 'all 0.2s',
-      }}>
+      }} className="px-2">
         {mode === 'buyer'
           ? 'Search by shop name, Facebook page, or mobile wallet number before sending payment'
           : 'Search a buyer\'s phone number or profile to check for delivery fraud reports'}
@@ -102,7 +100,7 @@ export default function SearchBar() {
             : '0 4px 24px rgba(25,25,33,0.05)',
         }}>
           {/* Search Icon */}
-          <span style={{ paddingLeft: '20px', color: 'var(--color-text-muted)', flexShrink: 0, fontSize: '18px' }}>
+          <span className="pl-3 sm:pl-5 text-sm sm:text-lg" style={{ color: 'var(--color-text-muted)', flexShrink: 0 }}>
             🔍
           </span>
 
@@ -115,13 +113,12 @@ export default function SearchBar() {
             placeholder={mode === 'buyer' ? buyerPlaceholder : sellerPlaceholder}
             autoComplete="off"
             spellCheck={false}
+            className="py-3 px-2 sm:py-[18px] sm:px-4 text-xs sm:text-[15px]"
             style={{
               flex: 1,
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              padding: '18px 16px',
-              fontSize: '15px',
               color: 'var(--color-text-primary)',
               fontFamily: 'var(--font-sans)',
               caretColor: mode === 'buyer' ? 'var(--color-danger)' : 'var(--color-accent)',
@@ -151,14 +148,12 @@ export default function SearchBar() {
           {/* Submit Button */}
           <button
             type="submit"
+            className="m-1 py-2 px-3 sm:m-1.5 sm:py-3 sm:px-6 text-xs sm:text-[14px]"
             style={{
-              margin: '6px',
-              padding: '12px 24px',
               background: mode === 'buyer' ? 'var(--color-danger)' : 'var(--color-accent)',
               color: 'white',
               border: 'none',
               borderRadius: 'var(--radius-lg)',
-              fontSize: '14px',
               fontWeight: 600,
               fontFamily: 'var(--font-sans)',
               cursor: 'pointer',

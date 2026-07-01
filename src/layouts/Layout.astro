@@ -53,12 +53,67 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://scamshie
         <a href="/about" class="text-sm transition-colors" style="color: var(--color-text-secondary);" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">About</a>
       </div>
 
-      <!-- CTA -->
-      <a href="/report" class="text-xs font-medium px-3 py-1.5 rounded-full transition-all" style="background: var(--color-danger); color: white; text-decoration: none;" onmouseover="this.style.background='var(--color-danger-dim)'" onmouseout="this.style.background='var(--color-danger)'">
-        + Report Scam
-      </a>
+      <!-- Actions -->
+      <div class="flex items-center gap-2.5">
+        <!-- CTA -->
+        <a href="/report" class="text-xs font-medium px-3 py-1.5 rounded-full transition-all" style="background: var(--color-danger); color: white; text-decoration: none;" onmouseover="this.style.background='var(--color-danger-dim)'" onmouseout="this.style.background='var(--color-danger)'">
+          + Report Scam
+        </a>
+
+        <!-- Hamburger Button -->
+        <button id="mobile-menu-toggle" class="flex sm:hidden flex-col gap-1 justify-center items-center w-8 h-8 rounded-md border border-default bg-transparent cursor-pointer" aria-label="Toggle mobile menu" style="padding: 0; border-color: var(--color-border);">
+          <span class="w-4 h-0.5 transition-all duration-200 origin-center" id="hamburger-line-1" style="background-color: var(--color-text-primary);"></span>
+          <span class="w-4 h-0.5 transition-all duration-200" id="hamburger-line-2" style="background-color: var(--color-text-primary);"></span>
+          <span class="w-4 h-0.5 transition-all duration-200 origin-center" id="hamburger-line-3" style="background-color: var(--color-text-primary);"></span>
+        </button>
+      </div>
     </nav>
+
+    <!-- Mobile Navigation Dropdown -->
+    <div id="mobile-menu" class="hidden sm:hidden border-t transition-all duration-200 bg-canvas" style="border-color: var(--color-border); max-height: 0; overflow: hidden;">
+      <div class="px-4 py-3 flex flex-col gap-3">
+        <a href="/" class="text-sm font-medium py-1" style="color: var(--color-text-secondary); text-decoration: none;">Search</a>
+        <a href="/report" class="text-sm font-medium py-1" style="color: var(--color-text-secondary); text-decoration: none;">Report Fraud</a>
+        <a href="/about" class="text-sm font-medium py-1" style="color: var(--color-text-secondary); text-decoration: none;">About</a>
+      </div>
+    </div>
   </header>
+
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.getElementById('mobile-menu-toggle');
+      const menu = document.getElementById('mobile-menu');
+      const line1 = document.getElementById('hamburger-line-1');
+      const line2 = document.getElementById('hamburger-line-2');
+      const line3 = document.getElementById('hamburger-line-3');
+
+      if (toggle && menu) {
+        let isOpen = false;
+
+        toggle.addEventListener('click', () => {
+          isOpen = !isOpen;
+          
+          if (isOpen) {
+            menu.classList.remove('hidden');
+            menu.style.maxHeight = '200px';
+            // Transform hamburger to X
+            line1.style.transform = 'translateY(6px) rotate(45deg)';
+            line2.style.opacity = '0';
+            line3.style.transform = 'translateY(-6px) rotate(-45deg)';
+          } else {
+            menu.style.maxHeight = '0';
+            // Reset hamburger lines
+            line1.style.transform = 'none';
+            line2.style.opacity = '1';
+            line3.style.transform = 'none';
+            setTimeout(() => {
+              if (!isOpen) menu.classList.add('hidden');
+            }, 200);
+          }
+        });
+      }
+    });
+  </script>
 
   <!-- Page Content -->
   <main>
