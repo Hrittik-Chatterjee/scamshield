@@ -63,7 +63,7 @@ export const POST: APIRoute = async (context) => {
         console.log(`[RAG] Generating embedding for query: "${lastUserMessage}"`);
         const queryVector = await generateEmbedding(lastUserMessage, aiBinding);
         if (queryVector && queryVector.length > 0) {
-          const matches = await queryVectors(vectorizeBinding, queryVector, 3);
+          const matches = await queryVectors(vectorizeBinding, queryVector, 6);
           console.log(`[RAG] Raw Vectorize matches for query "${lastUserMessage}":`, matches);
           
           const matchedIds = matches.filter(m => m.score > 0.3).map(m => m.id);
@@ -84,7 +84,7 @@ export const POST: APIRoute = async (context) => {
                 incidentDate: r.incident_date,
                 amountLost: r.amount_lost || undefined,
                 complaintText: r.complaint_text,
-                evidenceFileName: r.evidence_file_name || undefined
+                evidenceFileName: r.evidence_r2_key || undefined
               }));
 
               ragContext = reportsResult.results.map((r: any) => {
