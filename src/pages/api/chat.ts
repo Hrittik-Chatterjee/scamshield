@@ -56,6 +56,7 @@ export const POST: APIRoute = async (context) => {
     // ── 2. RAG Pipeline: Vector search for database context ──
     const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     let ragContext = 'No relevant database records found for this query.';
+    let matchedReportsList: any[] = [];
 
     if (lastUserMessage && aiBinding && vectorizeBinding) {
       try {
@@ -76,6 +77,16 @@ export const POST: APIRoute = async (context) => {
               .all();
             
             if (reportsResult && reportsResult.results && reportsResult.results.length > 0) {
+              matchedReportsList = reportsResult.results.map((r: any) => ({
+                id: r.id,
+                entityIdentifier: r.entity_identifier,
+                entityType: r.entity_type,
+                incidentDate: r.incident_date,
+                amountLost: r.amount_lost || undefined,
+                complaintText: r.complaint_text,
+                evidenceFileName: r.evidence_file_name || undefined
+              }));
+
               ragContext = reportsResult.results.map((r: any) => {
                 let complaintText = r.complaint_text;
                 try {
@@ -268,7 +279,12 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
       parsed.message = `✅ **Report Submitted Successfully!**\n\nI have submitted the scam report for **${data.entityIdentifier}** to the admin queue. Our moderation team will review the evidence screenshot and details shortly.\n\n${parsed.message}`;
     }
 
-    return new Response(JSON.stringify(parsed), {
+    const responsePayload = {
+      ...parsed,
+      reports: matchedReportsList.length > 0 ? matchedReportsList : undefined
+    };
+
+    return new Response(JSON.stringify(responsePayload), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
