@@ -300,6 +300,8 @@ npx astro dev --port 4321
 
 20. **Mobile Responsiveness Overhaul** — Refactored styling systems in base layout, search bar, home page, report form, search results, and admin dashboard to use standard responsive Tailwind CSS v4 classes and flex-direction rules, replacing rigid inline styles to guarantee support for mobile viewports down to 320px width.
 
+21. **Hybrid AI Architecture & RAG Conversational Agent** — Implemented a user-facing RAG chatbot page (`/chat`) that searches approved reports in Vectorize and guides users through submitting new reports conversationally. Rebuilt the background scraper classifier to run on Cloudflare Workers AI with Gemini fallback, saving your dual-Groq keys exclusively for chatbot conversations. Implemented IP rate limiting, input length caps, session limits, and strict R2 file upload validation.
+
 ---
 
-*Last updated: Overhauled style declarations, grids, and flex components across the codebase to implement complete mobile responsiveness and visual compatibility on screens under 640px.*
+*Last updated: Implemented RAG-powered chatbot agent page (/chat) with dual-Groq/Gemini fallback, Workers AI edge post classification, and full rate-limiting and security controls.*

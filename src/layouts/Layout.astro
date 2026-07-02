@@ -50,6 +50,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://scamshie
       <div class="hidden sm:flex items-center gap-6">
         <a href="/" class="text-sm transition-colors" style="color: var(--color-text-secondary);" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">Search</a>
         <a href="/report" class="text-sm transition-colors" style="color: var(--color-text-secondary);" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">Report Fraud</a>
+        <a href="/chat" class="text-sm transition-colors" style="color: var(--color-text-secondary);" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">
+          <span style="display: inline-flex; align-items: center; gap: 4px;">
+            <span style="color: var(--color-danger);">✨</span> ScamShield AI
+          </span>
+        </a>
         <a href="/about" class="text-sm transition-colors" style="color: var(--color-text-secondary);" onmouseover="this.style.color='var(--color-text-primary)'" onmouseout="this.style.color='var(--color-text-secondary)'">About</a>
       </div>
 
@@ -74,6 +79,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://scamshie
       <div class="px-4 py-3 flex flex-col gap-3">
         <a href="/" class="text-sm font-medium py-1" style="color: var(--color-text-secondary); text-decoration: none;">Search</a>
         <a href="/report" class="text-sm font-medium py-1" style="color: var(--color-text-secondary); text-decoration: none;">Report Fraud</a>
+        <a href="/chat" class="text-sm font-medium py-1" style="color: var(--color-danger); text-decoration: none;">✨ ScamShield AI</a>
         <a href="/about" class="text-sm font-medium py-1" style="color: var(--color-text-secondary); text-decoration: none;">About</a>
       </div>
     </div>

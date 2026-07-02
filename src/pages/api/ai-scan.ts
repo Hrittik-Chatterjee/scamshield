@@ -113,7 +113,7 @@ Respond ONLY with a JSON object in this format:
     // ── 4. AI Inference ───────────────────────────────────────────────
     const aiResponse = await runAIInference(
       prompt,
-      env.GROQ_API_KEY,
+      [env.GROQ_API_KEY_CHAT_1, env.GROQ_API_KEY_CHAT_2],
       env.GEMINI_API_KEY,
       { whoisAgeDays, safeBrowsingOk, urlscanVerdict }
     );

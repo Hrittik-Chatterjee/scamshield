@@ -21,6 +21,15 @@
 			"bucket_name": "scamshield-evidence"
 		}
 	],
+	"ai": {
+		"binding": "AI"
+	},
+	"vectorize": [
+		{
+			"binding": "VECTORIZE",
+			"index_name": "scamshield-vectors"
+		}
+	],
 	"observability": {
 		"enabled": true
 	}

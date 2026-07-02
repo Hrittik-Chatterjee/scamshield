@@ -199,16 +199,17 @@ export const POST: APIRoute = async (context) => {
       // Run AI/heuristic classification on the post caption to check if it's a real scam report
       console.log(`\n[Scraper Ingestion] 📥 Received post: "${post.postUrl}"`);
       const startTime = Date.now();
-      const classification = await classifyScrapedPost(post.postText, env?.GROQ_API_KEY, env?.GEMINI_API_KEY);
+      const classification = await classifyScrapedPost(post.postText, env?.AI, env?.GEMINI_API_KEY);
       const isScamReport = classification.isScamReport;
+      const isFailed = isScamReport === null;
       const duration = Date.now() - startTime;
 
       console.log(`[Scraper Ingestion] 🤖 AI classification finished in ${duration}ms:`);
-      console.log(`   ├─ Scam Complaint?: ${isScamReport ? 'YES ✅' : 'NO ❌'}`);
-      console.log(`   ├─ Action: ${isScamReport ? 'Sent to Pending queue' : 'Sent to Rejected queue'}`);
+      console.log(`   ├─ Scam Complaint?: ${isFailed ? 'FAILED ⚠️' : (isScamReport ? 'YES ✅' : 'NO ❌')}`);
+      console.log(`   ├─ Action: ${isFailed ? 'Sent to Pending queue (AI Failed)' : (isScamReport ? 'Sent to Pending queue' : 'Sent to Rejected queue')}`);
       console.log(`   └─ Explanation: "${classification.explanation}"`);
 
-      if (!isScamReport) {
+      if (!isScamReport && !isFailed) {
         autoRejectedCount++;
       }
 
@@ -220,8 +221,11 @@ export const POST: APIRoute = async (context) => {
         posterUrl: post.posterUrl || '',
         postText: post.postText.trim(),
         images: processedImages,
-        autoRejected: !isScamReport,
-        rejectionReason: !isScamReport ? classification.explanation : undefined,
+        autoRejected: !isScamReport && !isFailed,
+        aiFailed: isFailed ? true : undefined,
+        rejectionReason: isFailed 
+          ? 'AI Classification Failed - Queued for Manual Review'
+          : (!isScamReport ? classification.explanation : undefined),
       };
       const complaintBody = JSON.stringify(complaintBodyObj);
 
@@ -234,7 +238,7 @@ export const POST: APIRoute = async (context) => {
           incidentDate: post.postDate || new Date().toISOString().split('T')[0],
           complaintText: complaintBody.trim(),
           evidenceFileName: post.postUrl, // Store the post URL as the evidence key/filename
-          status: isScamReport ? 'PENDING' : 'REJECTED',
+          status: (isScamReport === true || isFailed) ? 'PENDING' : 'REJECTED',
           createdAt: new Date().toISOString(),
           source: 'SCRAPED',
         };

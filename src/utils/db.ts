@@ -1,6 +1,7 @@
 // src/utils/db.ts
 import type { PendingReport } from '../pages/api/report';
 import { getEnv } from './env';
+import { generateEmbedding, upsertVector, deleteVector, queryVectors } from './vector';
 
 export interface Entity {
   id: string;
@@ -149,7 +150,46 @@ export async function getEntity(query: string, mode: 'buyer' | 'seller', _locals
       .all();
 
     if (!entitiesResult || !entitiesResult.results || entitiesResult.results.length === 0) {
-      // Fallback: search reports table for approved reports containing the search query in identifier or text
+      // ── Cloudflare Vectorize Semantic Search Fallback ──
+      try {
+        const aiBinding = env?.AI || _locals?.runtime?.env?.AI;
+        const vectorizeBinding = env?.VECTORIZE || _locals?.runtime?.env?.VECTORIZE;
+        if (aiBinding && vectorizeBinding) {
+          console.log(`[db] Performing semantic search for: "${query}"`);
+          const queryEmbedding = await generateEmbedding(query, aiBinding);
+          if (queryEmbedding && queryEmbedding.length > 0) {
+            const matches = await queryVectors(vectorizeBinding, queryEmbedding, 5);
+            // cosine similarity threshold: 0.5 (where 1.0 is identical)
+            const matchedReportIds = matches
+              .filter(m => m.score > 0.5)
+              .map(m => m.id);
+
+            if (matchedReportIds.length > 0) {
+              console.log(`[db] Found ${matchedReportIds.length} semantic matches:`, matchedReportIds);
+              const reportPlaceholders = matchedReportIds.map(() => '?').join(',');
+              const reportsResult = await db
+                .prepare(`SELECT DISTINCT entity_id FROM reports WHERE id IN (${reportPlaceholders}) AND status = 'APPROVED' AND entity_id IS NOT NULL`)
+                .bind(...matchedReportIds)
+                .all();
+
+              if (reportsResult && reportsResult.results && reportsResult.results.length > 0) {
+                const entityIds = reportsResult.results.map((r: any) => r.entity_id);
+                const entityPlaceholders = entityIds.map(() => '?').join(',');
+                entitiesResult = await db
+                  .prepare(`SELECT * FROM entities WHERE id IN (${entityPlaceholders})`)
+                  .bind(...entityIds)
+                  .all();
+              }
+            }
+          }
+        }
+      } catch (vErr) {
+        console.error('[db] Error running semantic vector search fallback:', vErr);
+      }
+    }
+
+    if (!entitiesResult || !entitiesResult.results || entitiesResult.results.length === 0) {
+      // Fallback 2: text-based search reports table for approved reports containing the search query in identifier or text
       const reporterType = matchMode === 'SELLER' ? 'BUYER' : 'SELLER';
       const wildcard = `%${query}%`;
       const reportsSearch = await db
@@ -519,6 +559,25 @@ export async function updateReportStatus(reportId: string, action: 'approve' | '
           // Link report to the newly created entity
           await db.prepare(`UPDATE reports SET entity_id = ? WHERE id = ?`).bind(newId, reportId).run();
         }
+
+        // ── Cloudflare Vectorize Sync ──
+        try {
+          const aiBinding = env?.AI || _locals?.runtime?.env?.AI;
+          const vectorizeBinding = env?.VECTORIZE || _locals?.runtime?.env?.VECTORIZE;
+          if (aiBinding && vectorizeBinding) {
+            const embeddingText = `Identifier: ${identifier}\nComplaint: ${report.complaint_text}`;
+            const embedding = await generateEmbedding(embeddingText, aiBinding);
+            if (embedding && embedding.length > 0) {
+              await upsertVector(vectorizeBinding, reportId, embedding, {
+                identifier,
+                type: report.entity_type
+              });
+              console.log(`[db] Successfully upserted vector embedding for report: ${reportId}`);
+            }
+          }
+        } catch (vErr) {
+          console.error('[db] Error syncing vector embedding during approval:', vErr);
+        }
       }
     }
   } else {
@@ -665,6 +724,17 @@ export async function deleteReport(reportId: string, _locals?: any) {
       
       // Delete the report
       await db.prepare(`DELETE FROM reports WHERE id = ?`).bind(reportId).run();
+
+      // Delete the vector embedding from Vectorize if binding exists
+      try {
+        const vectorizeBinding = env?.VECTORIZE || _locals?.runtime?.env?.VECTORIZE;
+        if (vectorizeBinding) {
+          await deleteVector(vectorizeBinding, reportId);
+          console.log(`[db] Deleted vector embedding for report: ${reportId}`);
+        }
+      } catch (vErr) {
+        console.error('[db] Error deleting vector embedding during deletion:', vErr);
+      }
       
       // If it was approved, decrement the entity complaint count
       if (status === 'APPROVED' && entityId) {

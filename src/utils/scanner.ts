@@ -166,7 +166,7 @@ export async function getWebSearchSnippets(query: string, apiKey?: string): Prom
 // ── AI Inference ────────────────────────────────────────────────────
 export async function runAIInference(
   prompt: string,
-  groqKey?: string,
+  groqKey?: string | string[],
   geminiKey?: string,
   diagnostics?: { whoisAgeDays?: number; safeBrowsingOk: boolean; urlscanVerdict: string }
 ): Promise<{
@@ -174,15 +174,22 @@ export async function runAIInference(
   explanation: string;
   flags: string[];
 }> {
-  // ── 1. Groq Inference (Primary) ──
-  if (groqKey) {
+  // Collect all available Groq keys to try in sequence
+  const keysToTry: string[] = [];
+  if (Array.isArray(groqKey)) {
+    keysToTry.push(...groqKey.filter(Boolean));
+  } else if (groqKey) {
+    keysToTry.push(groqKey);
+  }
+
+  for (const key of keysToTry) {
     try {
       console.log('[Scanner] Triggering Groq API...');
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${groqKey}`
+          'Authorization': `Bearer ${key}`
         },
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
@@ -215,7 +222,7 @@ export async function runAIInference(
         console.warn(`[Scanner] Groq API returned error: ${res.status}`);
       }
     } catch (err) {
-      console.error('[Scanner] Groq inference error, falling back:', err);
+      console.error('[Scanner] Groq inference error, trying next key:', err);
     }
   }
 
@@ -295,9 +302,9 @@ export async function runAIInference(
 
 export async function classifyScrapedPost(
   text: string,
-  groqKey?: string,
+  aiBinding?: any,
   geminiKey?: string
-): Promise<{ isScamReport: boolean; explanation: string }> {
+): Promise<{ isScamReport: boolean | null; explanation: string }> {
   const prompt = `You are ScamShield BD's post classification model.
 Analyze the following Facebook post text from a Bangladeshi buyer safety group.
 Classify whether the post is:
@@ -315,45 +322,32 @@ Respond ONLY with a JSON object in this format:
   "explanation": "Brief explanation in English (1 sentence)."
 }`;
 
-  // ── 1. Groq Inference (Primary) ──
-  if (groqKey && groqKey !== 'paste_your_groq_api_key_here') {
+  // ── 1. Cloudflare Workers AI (Primary for Scraper) ──
+  if (aiBinding) {
     try {
-      console.log('[Scanner] Classifying post via Groq...');
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${groqKey}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are ScamShield BD\'s post classifier. Return strictly a JSON object.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          response_format: { type: 'json_object' }
-        })
+      console.log('[Scanner] Classifying post via Cloudflare Workers AI...');
+      const res = await aiBinding.run('@cf/meta/llama-3-8b-instruct', {
+        messages: [
+          { role: 'system', content: 'You are ScamShield BD\'s post classifier. Return strictly a JSON object.' },
+          { role: 'user', content: prompt }
+        ]
       });
 
-      if (res.ok) {
-        const data: any = await res.json();
-        const contentText = data.choices?.[0]?.message?.content;
-        if (contentText) {
-          const parsed = JSON.parse(contentText);
-          return {
-            isScamReport: !!parsed.isScamReport,
-            explanation: parsed.explanation || 'Analyzed via primary AI.'
-          };
+      const contentText = res.response || '';
+      if (contentText) {
+        let jsonText = contentText.trim();
+        const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[0];
         }
+        const parsed = JSON.parse(jsonText);
+        return {
+          isScamReport: parsed.isScamReport === true,
+          explanation: parsed.explanation || 'Analyzed via Cloudflare Workers AI.'
+        };
       }
     } catch (err) {
-      console.error('[Scanner] Groq classification error, falling back:', err);
+      console.error('[Scanner] Cloudflare Workers AI classification error, falling back:', err);
     }
   }
 
@@ -384,48 +378,20 @@ Respond ONLY with a JSON object in this format:
         if (contentText) {
           const parsed = JSON.parse(contentText);
           return {
-            isScamReport: !!parsed.isScamReport,
+            isScamReport: parsed.isScamReport === true,
             explanation: parsed.explanation || 'Analyzed via Gemini fallback.'
           };
         }
       }
     } catch (err) {
-      console.error('[Scanner] Gemini classification error, falling back:', err);
+      console.error('[Scanner] Gemini classification error:', err);
     }
   }
 
-  // ── 3. Local Heuristics Fallback (if no API keys) ──
-  console.log('[Scanner] No active API keys for classification. Using local keyword heuristics.');
-  const lowerText = text.toLowerCase();
-  
-  // Suggestion/Recommendation indicators (Bengali & English)
-  const suggestionKeywords = [
-    'suggest', 'recommend', 'suggestion', 'খুঁজছি', 'চাই', 'পরামর্শ', 
-    'খুজছি', 'কোথায় পাব', 'kothay pabo', 'suggestions', 'authentic page',
-    'বিশ্বস্ত পেজ', 'biswasto page', 'help me find', 'looking for',
-    'প্রয়োজন', 'সাজেস্ট', 'সাজেষ্ট', 'সাজেসট', 'ট্রাস্টেড',
-    'কিনতে চাই', 'কেনার', 'সন্ধান দিন', 'খুজতাছি', 'খুঁজতাছি',
-    'proyojon', 'sajest', 'trusted page', 'trusted'
-  ];
-
-  // Scam indicators (Bengali & English)
-  const scamKeywords = [
-    'scam', 'fraud', 'cheated', 'fake', 'প্রতারণা', 'টাকা মেরে', 
-    'রিফান্ড দেয়নি', 'scammer', 'প্রতারক', 'মেরে দিছে', 'blocking',
-    'রেসপন্স নাই', 'response dey na', 'দেই নাই', 'রিফান্ড দেয় নাই'
-  ];
-
-  // Check if it matches recommendation keywords
-  const hasSuggestion = suggestionKeywords.some(keyword => lowerText.includes(keyword));
-  const hasScam = scamKeywords.some(keyword => lowerText.includes(keyword));
-
-  let isScamReport = true;
-  let explanation = 'Classified as a scam complaint via local heuristics.';
-
-  if (hasSuggestion && !hasScam) {
-    isScamReport = false;
-    explanation = 'Identified as a general suggestion or recommendation query via local heuristics.';
-  }
-
-  return { isScamReport, explanation };
+  // ── 3. Failure State (Queue for Manual Review) ──
+  console.warn('[Scanner] Both Cloudflare AI and Gemini failed to classify the post.');
+  return {
+    isScamReport: null,
+    explanation: 'AI Classification failed (Rate Limited / Service Offline).'
+  };
 }

@@ -1,0 +1,39 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ChatInterface from '../components/ChatInterface';
+---
+
+<Layout 
+  title="ScamShield AI Chatbot — Verify & Report Fraud" 
+  description="Search for scam records, check online buyer/seller reputations, or conversationally submit new reports directly to our moderation team with ScamShield's AI Reporting Agent."
+>
+  <div style="max-width: 900px; margin: 0 auto; padding: 40px 16px;">
+    <!-- Hero Header -->
+    <div style="text-align: center; margin-bottom: 32px;">
+      <h1 style="font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 700; color: var(--color-text-primary); margin: 0 0 12px; letter-spacing: -0.02em;">
+        Chat with <span style="color: var(--color-danger);">ScamShield AI</span>
+      </h1>
+      <p style="font-size: 14px; color: var(--color-text-secondary); max-width: 580px; margin: 0 auto; line-height: 1.6;">
+        Ask about reported numbers, pages, or describe your transaction issue. The agent has direct access to our verified fraud database and will help you file reports conversationally.
+      </p>
+    </div>
+
+    <!-- Chat Interface React Wrapper -->
+    <div style="margin-bottom: 24px;">
+      <ChatInterface client:load />
+    </div>
+
+    <!-- Info Notice Box -->
+    <div style="background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius-lg); padding: 20px; max-width: 768px; margin: 0 auto;">
+      <h4 style="font-size: 13px; font-weight: 600; color: #4f46e5; margin: 0 0 8px; display: flex; align-items: center; gap: 6px;">
+        💡 How to File a Report via Chat
+      </h4>
+      <ul style="font-size: 12px; color: var(--color-text-secondary); line-height: 1.6; margin: 0; padding-left: 20px;">
+        <li>Describe the incident in detail (e.g., paid in advance, shop blocked you, or delivered fake goods).</li>
+        <li>Attach a payment screenshot or chat receipt evidence using the 📎 clip button.</li>
+        <li>Provide the scammer's identifier (such as their bKash phone number or Facebook page name).</li>
+        <li>Once all details are collected, the AI will automatically create a report in our review queue!</li>
+      </ul>
+    </div>
+  </div>
+</Layout>
