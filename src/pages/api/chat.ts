@@ -21,6 +21,60 @@ function isRateLimited(ip: string): boolean {
   return activeTimestamps.length > 5;
 }
 
+// ── Nara Router: Dynamic Model Selection ──────────────────────────────
+// Preferred models in priority order (best first). Non-reasoning models
+// are preferred for the chatbot since we need fast, structured JSON.
+const NARA_MODEL_PRIORITY = [
+  'deepseek-3.2',
+  'deepseek-v4-pro',
+  'gpt-4o',
+  'gpt-4o-mini',
+  'claude-3-5-sonnet',
+  'gemini-3.1-pro',
+  'kimi-k2.5',
+];
+
+// Hardcoded fallback if /v1/models is unreachable
+const NARA_FALLBACK_MODELS = ['deepseek-3.2'];
+
+// In-memory cache for available Nara models (cleared on worker restarts)
+let naraModelCache: { models: string[]; fetchedAt: number } | null = null;
+const NARA_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+async function getNaraModels(apiKey: string): Promise<string[]> {
+  // Return cached list if still fresh
+  if (naraModelCache && Date.now() - naraModelCache.fetchedAt < NARA_CACHE_TTL_MS) {
+    return naraModelCache.models;
+  }
+
+  try {
+    console.log('[Nara] Fetching available models from /v1/models...');
+    const res = await fetch('https://router.bynara.id/v1/models', {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    });
+
+    if (res.ok) {
+      const data: any = await res.json();
+      const available = (data.data || []).map((m: any) => m.id as string);
+      console.log(`[Nara] Available models: ${available.join(', ')}`);
+
+      // Sort by priority: preferred models first, then any extras alphabetically
+      const prioritized = NARA_MODEL_PRIORITY.filter(m => available.includes(m));
+      const extras = available.filter((m: string) => !NARA_MODEL_PRIORITY.includes(m)).sort();
+      const sorted = [...prioritized, ...extras];
+
+      naraModelCache = { models: sorted, fetchedAt: Date.now() };
+      return sorted;
+    } else {
+      console.warn(`[Nara] /v1/models failed: ${res.status}, using fallback list`);
+    }
+  } catch (err) {
+    console.error('[Nara] Error fetching models:', err);
+  }
+
+  return NARA_FALLBACK_MODELS;
+}
+
 export const POST: APIRoute = async (context) => {
   const { request, locals } = context;
   const clientIp = request.headers.get('CF-Connecting-IP') || '127.0.0.1';
@@ -158,47 +212,89 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
       userPrompt += `\n\n[System Metadata: User has successfully uploaded evidence file "${uploadedFileName || 'receipt.png'}" with R2 key: "${uploadedFileKey}"]`;
     }
 
-    // ── 4. Trigger Dual-Groq / Gemini Fallback Engine ──
+    // ── 4. Trigger Nara / Groq / Gemini Fallback Engine ──
+    let chatResponseText = '';
+    let apiUsed = 'None';
+
+    // 4.0 Try Nara Router (Primary) — with dynamic model selection
+    if (!chatResponseText && env.NARA_API_KEY) {
+      const naraModels = await getNaraModels(env.NARA_API_KEY);
+
+      for (const model of naraModels) {
+        try {
+          console.log(`[Chatbot] Querying Nara Router → ${model}...`);
+          const res = await fetch('https://router.bynara.id/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${env.NARA_API_KEY}`
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+                ...(uploadedFileKey ? [{ role: 'user', content: `I have uploaded the screenshot evidence file. R2 key: "${uploadedFileKey}"` }] : [])
+              ],
+              response_format: { type: 'json_object' }
+            })
+          });
+
+          if (res.ok) {
+            const data: any = await res.json();
+            chatResponseText = data.choices?.[0]?.message?.content || '';
+            if (chatResponseText) {
+              apiUsed = `Nara Router (${model})`;
+              break;
+            }
+          } else {
+            console.warn(`[Chatbot] Nara Router → ${model} failed: ${res.status}`);
+          }
+        } catch (naraErr) {
+          console.error(`[Chatbot] Nara Router → ${model} error:`, naraErr);
+        }
+      }
+    }
+
+    // 4.1 Try Groq Keys (Fallback)
     const groqKeys = [
       env.GROQ_API_KEY_CHAT_1,
       env.GROQ_API_KEY_CHAT_2,
       env.GROQ_API_KEY // Backward compatibility
     ].filter(Boolean);
 
-    let chatResponseText = '';
-    let apiUsed = 'None';
+    if (!chatResponseText) {
+      for (let i = 0; i < groqKeys.length; i++) {
+        try {
+          console.log(`[Chatbot] Querying Groq Key ${i + 1}...`);
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${groqKeys[i]}`
+            },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+                ...(uploadedFileKey ? [{ role: 'user', content: `I have uploaded the screenshot evidence file. R2 key: "${uploadedFileKey}"` }] : [])
+              ],
+              response_format: { type: 'json_object' }
+            })
+          });
 
-    // 4.1 Try Groq Keys
-    for (let i = 0; i < groqKeys.length; i++) {
-      try {
-        console.log(`[Chatbot] Querying Groq Key ${i + 1}...`);
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqKeys[i]}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              ...messages.map((m: any) => ({ role: m.role, content: m.content })),
-              ...(uploadedFileKey ? [{ role: 'user', content: `I have uploaded the screenshot evidence file. R2 key: "${uploadedFileKey}"` }] : [])
-            ],
-            response_format: { type: 'json_object' }
-          })
-        });
-
-        if (res.ok) {
-          const data: any = await res.json();
-          chatResponseText = data.choices?.[0]?.message?.content || '';
-          apiUsed = `Groq Key ${i + 1}`;
-          break;
-        } else {
-          console.warn(`[Chatbot] Groq Key ${i + 1} failed: ${res.status}`);
+          if (res.ok) {
+            const data: any = await res.json();
+            chatResponseText = data.choices?.[0]?.message?.content || '';
+            apiUsed = `Groq Key ${i + 1}`;
+            break;
+          } else {
+            console.warn(`[Chatbot] Groq Key ${i + 1} failed: ${res.status}`);
+          }
+        } catch (err) {
+          console.error(`[Chatbot] Groq Key ${i + 1} error:`, err);
         }
-      } catch (err) {
-        console.error(`[Chatbot] Groq Key ${i + 1} error:`, err);
       }
     }
 
