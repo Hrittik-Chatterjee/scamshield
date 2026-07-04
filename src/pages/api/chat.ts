@@ -22,29 +22,28 @@ function isRateLimited(ip: string): boolean {
 }
 
 // ── Nara Router: Dynamic Model Selection ──────────────────────────────
-// Preferred models in priority order (best first). Non-reasoning models
-// are preferred for the chatbot since we need fast, structured JSON.
+// Free models in plan priority order (best first).
 const NARA_MODEL_PRIORITY = [
-  'deepseek-3.2',
-  'deepseek-v4-pro',
-  'gpt-4o',
-  'gpt-4o-mini',
-  'claude-3-5-sonnet',
-  'gemini-3.1-pro',
-  'kimi-k2.5',
+  'claude-sonnet-4.5',
+  'claude-haiku-4.5',
+  'mistral-large',
+  'mistral-medium-3-5',
 ];
 
+// Keep track of models that return 402 (Payment Required) or 400 (Bad Request/Invalid) in memory.
+const unusableModels = new Set<string>();
+
 // Hardcoded fallback if /v1/models is unreachable
-const NARA_FALLBACK_MODELS = ['deepseek-3.2'];
+const NARA_FALLBACK_MODELS = ['claude-sonnet-4.5', 'claude-haiku-4.5', 'mistral-large', 'mistral-medium-3-5'];
 
 // In-memory cache for available Nara models (cleared on worker restarts)
 let naraModelCache: { models: string[]; fetchedAt: number } | null = null;
 const NARA_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 async function getNaraModels(apiKey: string): Promise<string[]> {
-  // Return cached list if still fresh
+  // Return cached list filtered of unusable models if still fresh
   if (naraModelCache && Date.now() - naraModelCache.fetchedAt < NARA_CACHE_TTL_MS) {
-    return naraModelCache.models;
+    return naraModelCache.models.filter(m => !unusableModels.has(m));
   }
 
   try {
@@ -58,9 +57,12 @@ async function getNaraModels(apiKey: string): Promise<string[]> {
       const available = (data.data || []).map((m: any) => m.id as string);
       console.log(`[Nara] Available models: ${available.join(', ')}`);
 
+      // Filter out unusable models
+      const freeAvailable = available.filter((m: string) => !unusableModels.has(m));
+
       // Sort by priority: preferred models first, then any extras alphabetically
-      const prioritized = NARA_MODEL_PRIORITY.filter(m => available.includes(m));
-      const extras = available.filter((m: string) => !NARA_MODEL_PRIORITY.includes(m)).sort();
+      const prioritized = NARA_MODEL_PRIORITY.filter(m => freeAvailable.includes(m));
+      const extras = freeAvailable.filter((m: string) => !NARA_MODEL_PRIORITY.includes(m)).sort();
       const sorted = [...prioritized, ...extras];
 
       naraModelCache = { models: sorted, fetchedAt: Date.now() };
@@ -72,7 +74,7 @@ async function getNaraModels(apiKey: string): Promise<string[]> {
     console.error('[Nara] Error fetching models:', err);
   }
 
-  return NARA_FALLBACK_MODELS;
+  return NARA_FALLBACK_MODELS.filter(m => !unusableModels.has(m));
 }
 
 export const POST: APIRoute = async (context) => {
@@ -222,6 +224,30 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
 
       for (const model of naraModels) {
         try {
+          const isAnthropic = model.startsWith('claude-');
+          
+          const requestBody: any = {
+            model,
+            messages: isAnthropic
+              ? [
+                  ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+                  ...(uploadedFileKey ? [{ role: 'user', content: `I have uploaded the screenshot evidence file. R2 key: "${uploadedFileKey}"` }] : [])
+                ]
+              : [
+                  { role: 'system', content: systemPrompt },
+                  ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+                  ...(uploadedFileKey ? [{ role: 'user', content: `I have uploaded the screenshot evidence file. R2 key: "${uploadedFileKey}"` }] : [])
+                ]
+          };
+
+          // Only include response_format if it is NOT an Anthropic model (causes 400 errors upstream)
+          if (!isAnthropic) {
+            requestBody.response_format = { type: 'json_object' };
+          } else {
+            // Include top-level system property for Anthropic-compatible routing
+            requestBody.system = systemPrompt;
+          }
+
           console.log(`[Chatbot] Querying Nara Router → ${model}...`);
           const res = await fetch('https://router.bynara.id/v1/chat/completions', {
             method: 'POST',
@@ -229,15 +255,7 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${env.NARA_API_KEY}`
             },
-            body: JSON.stringify({
-              model,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                ...messages.map((m: any) => ({ role: m.role, content: m.content })),
-                ...(uploadedFileKey ? [{ role: 'user', content: `I have uploaded the screenshot evidence file. R2 key: "${uploadedFileKey}"` }] : [])
-              ],
-              response_format: { type: 'json_object' }
-            })
+            body: JSON.stringify(requestBody)
           });
 
           if (res.ok) {
@@ -249,6 +267,10 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
             }
           } else {
             console.warn(`[Chatbot] Nara Router → ${model} failed: ${res.status}`);
+            if (res.status === 402 || res.status === 400) {
+              console.log(`[Nara] Model ${model} is unusable (Status ${res.status}). Adding to unusable list.`);
+              unusableModels.add(model);
+            }
           }
         } catch (naraErr) {
           console.error(`[Chatbot] Nara Router → ${model} error:`, naraErr);
