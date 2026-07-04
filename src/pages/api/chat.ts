@@ -114,7 +114,10 @@ export const POST: APIRoute = async (context) => {
     let ragContext = 'No relevant database records found for this query.';
     let matchedReportsList: any[] = [];
 
-    if (lastUserMessage && aiBinding && vectorizeBinding) {
+    const cleanMessage = lastUserMessage.trim().toLowerCase();
+    const isGreeting = ['hello', 'hi', 'hey', 'yo', 'halo', 'greetings', 'test'].includes(cleanMessage) || cleanMessage.length < 3;
+
+    if (lastUserMessage && !isGreeting && aiBinding && vectorizeBinding) {
       try {
         console.log(`[RAG] Generating embedding for query: "${lastUserMessage}"`);
         const queryVector = await generateEmbedding(lastUserMessage, aiBinding);
@@ -122,10 +125,10 @@ export const POST: APIRoute = async (context) => {
           const matches = await queryVectors(vectorizeBinding, queryVector, 6);
           console.log(`[RAG] Raw Vectorize matches for query "${lastUserMessage}":`, matches);
           
-          const matchedIds = matches.filter(m => m.score > 0.3).map(m => m.id);
+          const matchedIds = matches.filter(m => m.score > 0.5).map(m => m.id);
           
           if (matchedIds.length > 0 && db) {
-            console.log(`[RAG] Matches above threshold (0.3):`, matchedIds);
+            console.log(`[RAG] Matches above threshold (0.5):`, matchedIds);
             const placeholders = matchedIds.map(() => '?').join(',');
             const reportsResult = await db
               .prepare(`SELECT * FROM reports WHERE id IN (${placeholders}) AND status = 'APPROVED'`)
