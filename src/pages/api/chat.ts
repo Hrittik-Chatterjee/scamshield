@@ -114,10 +114,32 @@ export const POST: APIRoute = async (context) => {
     let ragContext = 'No relevant database records found for this query.';
     let matchedReportsList: any[] = [];
 
+    // ── Robust Query Detection ──
     const cleanMessage = lastUserMessage.trim().toLowerCase();
+    
+    // Check if the query is a simple greeting
     const isGreeting = ['hello', 'hi', 'hey', 'yo', 'halo', 'greetings', 'test'].includes(cleanMessage) || cleanMessage.length < 3;
+    
+    // Check if the query is a generic reporting intent (e.g., "I want to report", "how to report")
+    const isGenericReportingIntent = 
+      /^(i\s+)?want\s+to\s+report/i.test(cleanMessage) || 
+      /^how\s+to\s+report/i.test(cleanMessage) || 
+      /^report\s+a\s+scam/i.test(cleanMessage) ||
+      cleanMessage === 'report' ||
+      cleanMessage === 'help';
 
-    if (lastUserMessage && !isGreeting && aiBinding && vectorizeBinding) {
+    // A valid database query should look like an entity (phone, link, shop name) rather than conversation
+    const hasIdentifierPattern = 
+      /\b(01\d{9})\b/.test(cleanMessage) || // BD Phone numbers (bKash/Nagad)
+      /facebook\.com/i.test(cleanMessage) ||  // FB URLs
+      /http[s]?:\/\//i.test(cleanMessage) ||  // Links
+      /\.[a-z]{2,6}\b/i.test(cleanMessage) || // Domains
+      (cleanMessage.length > 5 && !cleanMessage.includes(' ') && !isGenericReportingIntent); // Single word query (e.g. shop name)
+
+    // Trigger RAG only if it is NOT a greeting, NOT a generic intent, AND contains a search pattern
+    const shouldSearchRAG = !isGreeting && !isGenericReportingIntent && (hasIdentifierPattern || cleanMessage.length > 8);
+
+    if (lastUserMessage && shouldSearchRAG && aiBinding && vectorizeBinding) {
       try {
         console.log(`[RAG] Generating embedding for query: "${lastUserMessage}"`);
         const queryVector = await generateEmbedding(lastUserMessage, aiBinding);
