@@ -160,25 +160,74 @@ Respond STRICTLY with a JSON object in this format:
         }
         console.log(`[RAG] Classified intent: ${classifiedIntent}, Target: "${searchTarget}"`);
       } catch (err) {
-        console.error('[RAG] Workers AI classification error, falling back to heuristics:', err);
-        // Heuristics fallback
-        const cleanMessage = lastUserMessage.trim().toLowerCase();
-        const isGreeting = ['hello', 'hi', 'hey', 'yo', 'halo', 'greetings', 'test'].includes(cleanMessage) || cleanMessage.length < 3;
-        const isGenericReportingIntent = 
-          /^(i\s+)?want\s+to\s+report/i.test(cleanMessage) || 
-          /^how\s+to\s+report/i.test(cleanMessage) || 
-          /^report\s+a\s+scam/i.test(cleanMessage) ||
-          cleanMessage === 'report' ||
-          cleanMessage === 'help';
-        const hasIdentifierPattern = 
-          /\b(01\d{9})\b/.test(cleanMessage) ||
-          /facebook\.com/i.test(cleanMessage) ||
-          /http[s]?:\/\//i.test(cleanMessage) ||
-          /\.[a-z]{2,6}\b/i.test(cleanMessage) ||
-          (cleanMessage.length > 5 && !cleanMessage.includes(' ') && !isGenericReportingIntent);
+        console.warn('[RAG] Workers AI classification error, attempting Gemini Fallback:', err);
+        
+        let geminiSuccess = false;
+        if (env.GEMINI_API_KEY) {
+          try {
+            console.log('[RAG] Classifying intent via Gemini...');
+            const classificationPrompt = `Classify the user's intent in this Bangladeshi online shopping scam assistant chat.
+User message: "${lastUserMessage}"
 
-        if (!isGreeting && !isGenericReportingIntent && (hasIdentifierPattern || cleanMessage.length > 8)) {
-          classifiedIntent = 'SEARCH';
+Intent options:
+- "SEARCH": The user wants to search/lookup/check a page name, link, phone number, website, or shop for scams (e.g., "is FakeShop BD a scam?", "check this number 01712345678", "facebook.com/shop").
+- "REPORT": The user explicitly wants to report a scam, submit a scam story, or start the reporting process (e.g., "I want to report a scam", "help me submit a scam report").
+- "CHAT": Greetings, general questions, comments, or chit-chat (e.g., "hello", "hi", "how does this work?").
+
+Respond STRICTLY with a JSON object in this format:
+{
+  "intent": "SEARCH" | "REPORT" | "CHAT",
+  "extractedTarget": "string or null" (only extract the clean shop name, phone number, website, or URL if the intent is SEARCH)
+}`;
+            const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: classificationPrompt }] }],
+                generationConfig: { responseMimeType: 'application/json' }
+              })
+            });
+
+            if (geminiRes.ok) {
+              const data: any = await geminiRes.json();
+              const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]);
+                classifiedIntent = parsed.intent || 'CHAT';
+                if (classifiedIntent === 'SEARCH' && parsed.extractedTarget) {
+                  searchTarget = parsed.extractedTarget;
+                }
+                geminiSuccess = true;
+                console.log(`[RAG] Classified intent (Gemini Fallback): ${classifiedIntent}, Target: "${searchTarget}"`);
+              }
+            }
+          } catch (gemErr) {
+            console.error('[RAG] Gemini intent classification fallback error:', gemErr);
+          }
+        }
+
+        // Final last-resort heuristics if both AIs failed
+        if (!geminiSuccess) {
+          console.log('[RAG] Fallback to regex heuristics...');
+          const cleanMessage = lastUserMessage.trim().toLowerCase();
+          const isGreeting = ['hello', 'hi', 'hey', 'yo', 'halo', 'greetings', 'test'].includes(cleanMessage) || cleanMessage.length < 3;
+          const isGenericReportingIntent = 
+            /^(i\s+)?want\s+to\s+report/i.test(cleanMessage) || 
+            /^how\s+to\s+report/i.test(cleanMessage) || 
+            /^report\s+a\s+scam/i.test(cleanMessage) ||
+            cleanMessage === 'report' ||
+            cleanMessage === 'help';
+          const hasIdentifierPattern = 
+            /\b(01\d{9})\b/.test(cleanMessage) ||
+            /facebook\.com/i.test(cleanMessage) ||
+            /http[s]?:\/\//i.test(cleanMessage) ||
+            /\.[a-z]{2,6}\b/i.test(cleanMessage) ||
+            (cleanMessage.length > 5 && !cleanMessage.includes(' ') && !isGenericReportingIntent);
+
+          if (!isGreeting && !isGenericReportingIntent && (hasIdentifierPattern || cleanMessage.length > 8)) {
+            classifiedIntent = 'SEARCH';
+          }
         }
       }
     }
