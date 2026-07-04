@@ -484,16 +484,35 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
     console.log(`[Chatbot] AI response received via ${apiUsed}.`);
     const parsed = JSON.parse(chatResponseText);
 
-    // ── 5. Action Handler: Automatically submit report to DB ──
+     // ── 5. Action Handler: Automatically submit report to DB ──
     if (parsed.action === 'SUBMIT_REPORT' && parsed.reportData) {
       console.log('[Chatbot] Agent triggered SUBMIT_REPORT action!');
       const data = parsed.reportData;
+      
+      // Fallback: If current request has no uploaded key, scan historical messages for R2 key metadata
+      let finalR2Key = uploadedFileKey;
+      let finalFileName = uploadedFileName;
+
+      if (!finalR2Key && Array.isArray(messages)) {
+        for (const msg of messages) {
+          if (msg.content && typeof msg.content === 'string') {
+            const keyMatch = msg.content.match(/R2 key:\s*"([^"]+)"/);
+            const fileMatch = msg.content.match(/evidence file\s*"([^"]+)"/);
+            if (keyMatch) {
+              finalR2Key = keyMatch[1];
+            }
+            if (fileMatch) {
+              finalFileName = fileMatch[1];
+            }
+          }
+        }
+      }
       
       const complaintBody = JSON.stringify({
         scraped: false,
         posterName: 'Conversational Chat User',
         postText: data.complaintText || '',
-        images: uploadedFileKey ? [uploadedFileKey] : [],
+        images: finalR2Key ? [finalR2Key] : [],
         conversationHistory: messages
       });
 
@@ -505,14 +524,14 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
         incidentDate: data.incidentDate || new Date().toISOString().split('T')[0],
         amountLost: data.amountLost || undefined,
         complaintText: complaintBody,
-        evidenceFileName: uploadedFileName || 'chat-upload.png',
-        evidenceR2Key: uploadedFileKey || undefined,
+        evidenceFileName: finalFileName || 'chat-upload.png',
+        evidenceR2Key: finalR2Key || undefined,
         status: 'PENDING',
         createdAt: new Date().toISOString(),
       };
 
       await createReport(report, null, locals);
-      console.log(`[Chatbot] Automatically submitted report: ${report.id}`);
+      console.log(`[Chatbot] Automatically submitted report: ${report.id} (R2 Key: ${finalR2Key})`);
       parsed.message = `✅ **Report Submitted Successfully!**\n\nI have submitted the scam report for **${data.entityIdentifier}** to the admin queue. Our moderation team will review the evidence screenshot and details shortly.\n\n${parsed.message}`;
     }
 
