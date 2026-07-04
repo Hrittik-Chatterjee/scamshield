@@ -114,35 +114,81 @@ export const POST: APIRoute = async (context) => {
     let ragContext = 'No relevant database records found for this query.';
     let matchedReportsList: any[] = [];
 
-    // ── Robust Query Detection ──
-    const cleanMessage = lastUserMessage.trim().toLowerCase();
-    
-    // Check if the query is a simple greeting
-    const isGreeting = ['hello', 'hi', 'hey', 'yo', 'halo', 'greetings', 'test'].includes(cleanMessage) || cleanMessage.length < 3;
-    
-    // Check if the query is a generic reporting intent (e.g., "I want to report", "how to report")
-    const isGenericReportingIntent = 
-      /^(i\s+)?want\s+to\s+report/i.test(cleanMessage) || 
-      /^how\s+to\s+report/i.test(cleanMessage) || 
-      /^report\s+a\s+scam/i.test(cleanMessage) ||
-      cleanMessage === 'report' ||
-      cleanMessage === 'help';
+    // ── Dynamic Intent Classification via Cloudflare Workers AI ──
+    let classifiedIntent: 'SEARCH' | 'REPORT' | 'CHAT' = 'CHAT';
+    let searchTarget = lastUserMessage;
 
-    // A valid database query should look like an entity (phone, link, shop name) rather than conversation
-    const hasIdentifierPattern = 
-      /\b(01\d{9})\b/.test(cleanMessage) || // BD Phone numbers (bKash/Nagad)
-      /facebook\.com/i.test(cleanMessage) ||  // FB URLs
-      /http[s]?:\/\//i.test(cleanMessage) ||  // Links
-      /\.[a-z]{2,6}\b/i.test(cleanMessage) || // Domains
-      (cleanMessage.length > 5 && !cleanMessage.includes(' ') && !isGenericReportingIntent); // Single word query (e.g. shop name)
+    if (lastUserMessage && aiBinding) {
+      try {
+        console.log('[RAG] Classifying intent via Cloudflare Workers AI...');
+        const classificationPrompt = `Classify the user's intent in this Bangladeshi online shopping scam assistant chat.
+User message: "${lastUserMessage}"
 
-    // Trigger RAG only if it is NOT a greeting, NOT a generic intent, AND contains a search pattern
-    const shouldSearchRAG = !isGreeting && !isGenericReportingIntent && (hasIdentifierPattern || cleanMessage.length > 8);
+Intent options:
+- "SEARCH": The user wants to search/lookup/check a page name, link, phone number, website, or shop for scams (e.g., "is FakeShop BD a scam?", "check this number 01712345678", "facebook.com/shop").
+- "REPORT": The user explicitly wants to report a scam, submit a scam story, or start the reporting process (e.g., "I want to report a scam", "help me submit a scam report").
+- "CHAT": Greetings, general questions, comments, or chit-chat (e.g., "hello", "hi", "how does this work?").
+
+Respond STRICTLY with a JSON object in this format:
+{
+  "intent": "SEARCH" | "REPORT" | "CHAT",
+  "extractedTarget": "string or null" (only extract the clean shop name, phone number, website, or URL if the intent is SEARCH)
+}`;
+        const classificationRes = await aiBinding.run('@cf/meta/llama-3.2-3b-instruct', {
+          messages: [
+            { role: 'system', content: 'You are ScamShield BD\'s message router. Respond strictly with JSON.' },
+            { role: 'user', content: classificationPrompt }
+          ]
+        });
+
+        const responseObj = classificationRes.response;
+        if (responseObj && typeof responseObj === 'object') {
+          classifiedIntent = responseObj.intent || 'CHAT';
+          if (classifiedIntent === 'SEARCH' && responseObj.extractedTarget) {
+            searchTarget = responseObj.extractedTarget;
+          }
+        } else if (responseObj && typeof responseObj === 'string') {
+          // Fallback if string is returned in other environments
+          const jsonMatch = responseObj.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            classifiedIntent = parsed.intent || 'CHAT';
+            if (classifiedIntent === 'SEARCH' && parsed.extractedTarget) {
+              searchTarget = parsed.extractedTarget;
+            }
+          }
+        }
+        console.log(`[RAG] Classified intent: ${classifiedIntent}, Target: "${searchTarget}"`);
+      } catch (err) {
+        console.error('[RAG] Workers AI classification error, falling back to heuristics:', err);
+        // Heuristics fallback
+        const cleanMessage = lastUserMessage.trim().toLowerCase();
+        const isGreeting = ['hello', 'hi', 'hey', 'yo', 'halo', 'greetings', 'test'].includes(cleanMessage) || cleanMessage.length < 3;
+        const isGenericReportingIntent = 
+          /^(i\s+)?want\s+to\s+report/i.test(cleanMessage) || 
+          /^how\s+to\s+report/i.test(cleanMessage) || 
+          /^report\s+a\s+scam/i.test(cleanMessage) ||
+          cleanMessage === 'report' ||
+          cleanMessage === 'help';
+        const hasIdentifierPattern = 
+          /\b(01\d{9})\b/.test(cleanMessage) ||
+          /facebook\.com/i.test(cleanMessage) ||
+          /http[s]?:\/\//i.test(cleanMessage) ||
+          /\.[a-z]{2,6}\b/i.test(cleanMessage) ||
+          (cleanMessage.length > 5 && !cleanMessage.includes(' ') && !isGenericReportingIntent);
+
+        if (!isGreeting && !isGenericReportingIntent && (hasIdentifierPattern || cleanMessage.length > 8)) {
+          classifiedIntent = 'SEARCH';
+        }
+      }
+    }
+
+    const shouldSearchRAG = (classifiedIntent === 'SEARCH') && searchTarget.length > 0;
 
     if (lastUserMessage && shouldSearchRAG && aiBinding && vectorizeBinding) {
       try {
-        console.log(`[RAG] Generating embedding for query: "${lastUserMessage}"`);
-        const queryVector = await generateEmbedding(lastUserMessage, aiBinding);
+        console.log(`[RAG] Generating embedding for target: "${searchTarget}"`);
+        const queryVector = await generateEmbedding(searchTarget, aiBinding);
         if (queryVector && queryVector.length > 0) {
           const matches = await queryVectors(vectorizeBinding, queryVector, 6);
           console.log(`[RAG] Raw Vectorize matches for query "${lastUserMessage}":`, matches);
@@ -239,18 +285,90 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
       userPrompt += `\n\n[System Metadata: User has successfully uploaded evidence file "${uploadedFileName || 'receipt.png'}" with R2 key: "${uploadedFileKey}"]`;
     }
 
-    // ── 4. Trigger Nara / Groq / Gemini Fallback Engine ──
+    // ── 4. Trigger Groq / Gemini / Nara Fallback Engine ──
     let chatResponseText = '';
     let apiUsed = 'None';
 
-    // 4.0 Try Nara Router (Primary) — with dynamic model selection
+    // 4.1 Try Groq Keys (Primary)
+    const groqKeys = [
+      env.GROQ_API_KEY_CHAT_1,
+      env.GROQ_API_KEY_CHAT_2,
+      env.GROQ_API_KEY // Backward compatibility
+    ].filter(Boolean);
+
+    if (!chatResponseText) {
+      for (let i = 0; i < groqKeys.length; i++) {
+        try {
+          console.log(`[Chatbot] Querying Groq Key ${i + 1}...`);
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${groqKeys[i]}`
+            },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                ...messages.map((m: any) => ({ role: m.role, content: m.content })),
+                ...(uploadedFileKey ? [{ role: 'user', content: `I have uploaded the screenshot evidence file. R2 key: "${uploadedFileKey}"` }] : [])
+              ],
+              response_format: { type: 'json_object' }
+            })
+          });
+
+          if (res.ok) {
+            const data: any = await res.json();
+            chatResponseText = data.choices?.[0]?.message?.content || '';
+            apiUsed = `Groq Key ${i + 1}`;
+            break;
+          } else {
+            console.warn(`[Chatbot] Groq Key ${i + 1} failed: ${res.status}`);
+          }
+        } catch (err) {
+          console.error(`[Chatbot] Groq Key ${i + 1} error:`, err);
+        }
+      }
+    }
+
+    // 4.2 Try Gemini (Fallback 1)
+    if (!chatResponseText && env.GEMINI_API_KEY) {
+      try {
+        console.log('[Chatbot] Querying Gemini Fallback...');
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{
+                  text: `${systemPrompt}\n\nUser messages history:\n${JSON.stringify(messages)}\n\nRespond strictly with a JSON object containing: message (string), requiresReportField (string/null), action (string/null), and reportData (object/null).`
+                }]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json'
+            }
+          })
+        });
+
+        if (res.ok) {
+          const data: any = await res.json();
+          chatResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          apiUsed = 'Gemini';
+        }
+      } catch (gemErr) {
+        console.error('[Chatbot] Gemini Fallback error:', gemErr);
+      }
+    }
+
+    // 4.3 Try Nara Router (Fallback 2 - Last Resort) — with dynamic model selection
     if (!chatResponseText && env.NARA_API_KEY) {
       const naraModels = await getNaraModels(env.NARA_API_KEY);
 
       for (const model of naraModels) {
         try {
           const isAnthropic = model.startsWith('claude-');
-          
           const requestBody: any = {
             model,
             messages: isAnthropic
@@ -300,79 +418,6 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
         } catch (naraErr) {
           console.error(`[Chatbot] Nara Router → ${model} error:`, naraErr);
         }
-      }
-    }
-
-    // 4.1 Try Groq Keys (Fallback)
-    const groqKeys = [
-      env.GROQ_API_KEY_CHAT_1,
-      env.GROQ_API_KEY_CHAT_2,
-      env.GROQ_API_KEY // Backward compatibility
-    ].filter(Boolean);
-
-    if (!chatResponseText) {
-      for (let i = 0; i < groqKeys.length; i++) {
-        try {
-          console.log(`[Chatbot] Querying Groq Key ${i + 1}...`);
-          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${groqKeys[i]}`
-            },
-            body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                ...messages.map((m: any) => ({ role: m.role, content: m.content })),
-                ...(uploadedFileKey ? [{ role: 'user', content: `I have uploaded the screenshot evidence file. R2 key: "${uploadedFileKey}"` }] : [])
-              ],
-              response_format: { type: 'json_object' }
-            })
-          });
-
-          if (res.ok) {
-            const data: any = await res.json();
-            chatResponseText = data.choices?.[0]?.message?.content || '';
-            apiUsed = `Groq Key ${i + 1}`;
-            break;
-          } else {
-            console.warn(`[Chatbot] Groq Key ${i + 1} failed: ${res.status}`);
-          }
-        } catch (err) {
-          console.error(`[Chatbot] Groq Key ${i + 1} error:`, err);
-        }
-      }
-    }
-
-    // 4.2 Try Gemini Fallback
-    if (!chatResponseText && env.GEMINI_API_KEY) {
-      try {
-        console.log('[Chatbot] Querying Gemini Fallback...');
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{
-                  text: `${systemPrompt}\n\nUser messages history:\n${JSON.stringify(messages)}\n\nRespond strictly with a JSON object containing: message (string), requiresReportField (string/null), action (string/null), and reportData (object/null).`
-                }]
-              }
-            ],
-            generationConfig: {
-              responseMimeType: 'application/json'
-            }
-          })
-        });
-
-        if (res.ok) {
-          const data: any = await res.json();
-          chatResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          apiUsed = 'Gemini';
-        }
-      } catch (gemErr) {
-        console.error('[Chatbot] Gemini Fallback error:', gemErr);
       }
     }
 

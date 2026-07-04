@@ -300,8 +300,10 @@ npx astro dev --port 4321
 
 20. **Mobile Responsiveness Overhaul** — Refactored styling systems in base layout, search bar, home page, report form, search results, and admin dashboard to use standard responsive Tailwind CSS v4 classes and flex-direction rules, replacing rigid inline styles to guarantee support for mobile viewports down to 320px width.
 
-21. **Hybrid AI Architecture & RAG Conversational Agent** — Implemented a user-facing RAG chatbot page (`/chat`) that searches approved reports in Vectorize and guides users through submitting new reports conversationally. Rebuilt the background scraper classifier to run on Cloudflare Workers AI with Gemini fallback, saving your dual-Groq keys exclusively for chatbot conversations. Implemented IP rate limiting, input length caps, session limits, and strict R2 file upload validation.
+21. **Hybrid AI Architecture & RAG Conversational Agent** — Implemented a user-facing RAG chatbot page (`/chat`) that searches approved reports in Vectorize and guides users through submitting new reports conversationally. Rebuilt the background scraper classifier to run on Cloudflare Workers AI with Gemini fallback. Implemented IP rate limiting, input length caps, session limits, and strict R2 file upload validation.
+
+22. **Intelligent Edge RAG Routing & Fallback Overhaul** — Integrated Cloudflare Workers AI (`@cf/meta/llama-3.2-3b-instruct`) as a fast edge router to classify chatbot message intent (SEARCH, REPORT, CHAT) and extract search targets dynamically. This bypasses vector database searches for generic conversations (e.g. greetings, "I want to report") to keep the UI clean. Restructured the chatbot API fallback sequence to try Groq keys first, fallback to Gemini, and use Nara Router (filtering out unusable/down models dynamically) as a last-resort option.
 
 ---
 
-*Last updated: Implemented RAG-powered chatbot agent page (/chat) with dual-Groq/Gemini fallback, Workers AI edge post classification, and full rate-limiting and security controls.*
+*Last updated: Implemented edge-based Workers AI intent routing, semantic entity extraction, and optimized AI fallback sequence (Groq -> Gemini -> Nara).*
