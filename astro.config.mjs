@@ -14,6 +14,9 @@ export default defineConfig({
   },
   vite: {
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      rolldownOptions: {}
+    },
     server: {
       watch: {
         ignored: ['**/.wrangler/**']

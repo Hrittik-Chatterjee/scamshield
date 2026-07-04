@@ -22,12 +22,14 @@
 		}
 	],
 	"ai": {
-		"binding": "AI"
+		"binding": "AI",
+		"remote": true
 	},
 	"vectorize": [
 		{
 			"binding": "VECTORIZE",
-			"index_name": "scamshield-vectors"
+			"index_name": "scamshield-vectors",
+			"remote": true
 		}
 	],
 	"observability": {
