@@ -33,6 +33,7 @@ export interface PendingReport {
   complaintText: string;
   evidenceFileName: string;   // original filename
   evidenceDataUrl?: string;   // base64 preview (dev only)
+  evidenceR2Key?: string;     // R2 object key (production)
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
   source?: 'CROWDSOURCED' | 'SCRAPED';

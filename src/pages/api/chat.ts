@@ -25,7 +25,6 @@ export const POST: APIRoute = async (context) => {
   const { request, locals } = context;
   const clientIp = request.headers.get('CF-Connecting-IP') || '127.0.0.1';
 
-  // ── 1. Security Check: Rate Limiting ──
   if (isRateLimited(clientIp)) {
     return new Response(JSON.stringify({
       message: 'Too many requests. Please wait a minute before sending another message.',
@@ -36,6 +35,7 @@ export const POST: APIRoute = async (context) => {
       headers: { 'Content-Type': 'application/json' }
     });
   }
+  // ── 1. Security Check: Rate Limiting 
 
   try {
     const body = await request.json();
@@ -236,8 +236,8 @@ You MUST respond strictly with a JSON object. No Markdown outside the JSON. Form
     if (!chatResponseText) {
       return new Response(JSON.stringify({
         message: 'The AI chat service is temporarily busy. Please try again in a few moments.',
-        action: null,
-        requiresReportField: null
+      action: null,
+      requiresReportField: null
       }), {
         status: 503,
         headers: { 'Content-Type': 'application/json' }
