@@ -122,14 +122,51 @@ const authed = providedKey === ADMIN_KEY;
 
 </Layout>
 
+<script define:vars={{ serverAuthed: authed, isIncorrect: providedKey !== '' && !authed }}>
+  if (isIncorrect) {
+    sessionStorage.removeItem('admin_secret_key');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('key');
+    window.history.replaceState({}, '', url.pathname + url.search);
+  } else {
+    const url = new URL(window.location.href);
+    const urlKey = url.searchParams.get('key');
+    if (urlKey) {
+      sessionStorage.setItem('admin_secret_key', urlKey);
+      url.searchParams.delete('key');
+      window.history.replaceState({}, '', url.pathname + url.search);
+      if (!serverAuthed) {
+        window.location.reload();
+      }
+    } else {
+      const storedKey = sessionStorage.getItem('admin_secret_key');
+      if (storedKey && !serverAuthed) {
+        url.searchParams.set('key', storedKey);
+        window.location.href = url.toString();
+      }
+    }
+  }
+</script>
+
 {authed && (
   <script define:vars={{ adminKey: providedKey }}>
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     let currentFilter = 'PENDING';
 
     async function fetchStats() {
+      const activeKey = adminKey || sessionStorage.getItem('admin_secret_key') || '';
       for (const status of ['PENDING', 'APPROVED', 'REJECTED']) {
         try {
-          const res = await fetch(`/api/admin/queue?key=${adminKey}&status=${status}`);
+          const res = await fetch(`/api/admin/queue?key=${encodeURIComponent(activeKey)}&status=${status}`);
           const data = await res.json();
           const el = document.getElementById(`stat-${status.toLowerCase()}`);
           if (el) el.textContent = data.total ?? 0;
@@ -151,11 +188,12 @@ const authed = providedKey === ADMIN_KEY;
     }
 
     async function loadReports(status = 'PENDING') {
+      const activeKey = adminKey || sessionStorage.getItem('admin_secret_key') || '';
       const container = document.getElementById('reports-container');
       if (!container) return;
       container.innerHTML = '<div style="text-align: center; padding: 48px; color: var(--color-text-muted);">Loading…</div>';
       try {
-        const res = await fetch(`/api/admin/queue?key=${adminKey}&status=${status}`);
+        const res = await fetch(`/api/admin/queue?key=${encodeURIComponent(activeKey)}&status=${status}`);
         const data = await res.json();
         
         // ── AI Retry Queue Check ──
@@ -258,8 +296,8 @@ const authed = providedKey === ADMIN_KEY;
       // Clean display for Entity identifier
       const isEntityLink = r.entityIdentifier && r.entityIdentifier.startsWith('http');
       const entityDisplay = isEntityLink
-        ? `<a href="${r.entityIdentifier}" target="_blank" style="color:var(--color-accent);font-weight:600;text-decoration:none;word-break:break-all;">${r.entityIdentifier.replace(/https?:\/\/(www\.)?facebook\.com\//, '')} ↗</a>`
-        : r.entityIdentifier;
+        ? `<a href="${escapeHtml(r.entityIdentifier)}" target="_blank" style="color:var(--color-accent);font-weight:600;text-decoration:none;word-break:break-all;">${escapeHtml(r.entityIdentifier.replace(/https?:\/\/(www\.)?facebook\.com\//, ''))} ↗</a>`
+        : escapeHtml(r.entityIdentifier);
 
       const isLink = r.evidenceFileName && r.evidenceFileName.startsWith('http');
       const isR2Key = r.evidenceFileName && !isLink && !r.evidenceDataUrl;
@@ -279,10 +317,10 @@ const authed = providedKey === ADMIN_KEY;
 
         if (parsed.posterName) {
           const isAnon = parsed.posterName.toLowerCase().includes('anonymous') || parsed.posterName.toLowerCase().includes('অনামী');
-          const nameDisplay = isAnon ? '👥 Anonymous User' : parsed.posterName;
+          const nameDisplay = isAnon ? '👥 Anonymous User' : escapeHtml(parsed.posterName);
           
           if (parsed.posterProfile && !isAnon) {
-            posterNameHtml = `<div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">POSTER</div><div style="font-size:14px;color:var(--color-text-primary);font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><a href="${parsed.posterProfile}" target="_blank" style="color:var(--color-accent);text-decoration:none;" title="${parsed.posterName}">${nameDisplay} ↗</a></div></div>`;
+            posterNameHtml = `<div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">POSTER</div><div style="font-size:14px;color:var(--color-text-primary);font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><a href="${escapeHtml(parsed.posterProfile)}" target="_blank" style="color:var(--color-accent);text-decoration:none;" title="${escapeHtml(parsed.posterName)}">${nameDisplay} ↗</a></div></div>`;
           } else {
             posterNameHtml = `<div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">POSTER</div><div style="font-size:14px;color:var(--color-text-primary);font-weight:600;">${nameDisplay}</div></div>`;
           }
@@ -308,10 +346,10 @@ const authed = providedKey === ADMIN_KEY;
       const allCardImagesJson = JSON.stringify(allCardImages).replace(/"/g, '&quot;');
 
       const imgHtml = displayImgUrl
-        ? `<img src="${displayImgUrl}" alt="Evidence" style="max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--color-border);display:block;margin-top:12px;cursor:pointer;" onclick="window.openLightbox('${displayImgUrl}', ${allCardImagesJson})" title="Click to view full size" />`
+        ? `<img src="${escapeHtml(displayImgUrl)}" alt="Evidence" style="max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--color-border);display:block;margin-top:12px;cursor:pointer;" onclick="window.openLightbox('${escapeHtml(displayImgUrl)}', ${allCardImagesJson})" title="Click to view full size" />`
         : isLink
-          ? `<div style="padding:16px;background:var(--color-surface);border-radius:8px;font-size:13px;margin-top:12px;">📎 <a href="${r.evidenceFileName}" target="_blank" style="color:var(--color-accent);font-weight:600;text-decoration:none;">Open Scraped Post Link ↗</a></div>`
-          : `<div style="padding:16px;background:var(--color-surface);border-radius:8px;font-size:13px;color:var(--color-text-muted);margin-top:12px;">📎 ${r.evidenceFileName}</div>`;
+          ? `<div style="padding:16px;background:var(--color-surface);border-radius:8px;font-size:13px;margin-top:12px;">📎 <a href="${escapeHtml(r.evidenceFileName)}" target="_blank" style="color:var(--color-accent);font-weight:600;text-decoration:none;">Open Scraped Post Link ↗</a></div>`
+          : `<div style="padding:16px;background:var(--color-surface);border-radius:8px;font-size:13px;color:var(--color-text-muted);margin-top:12px;">📎 ${escapeHtml(r.evidenceFileName)}</div>`;
 
       let photosHtml = '';
       if (photoUrls.length > 0) {
@@ -324,7 +362,7 @@ const authed = providedKey === ADMIN_KEY;
                 const renderUrl = isAbsolute ? url : `/api/evidence?key=${encodeURIComponent(url)}`;
                 return `
                   <div style="position:relative;border:1px solid var(--color-border);border-radius:8px;overflow:hidden;background:var(--color-surface);">
-                    <img src="${renderUrl}" referrerpolicy="no-referrer" alt="Scraped Photo ${index + 1}" style="height:100px;max-width:180px;object-fit:cover;display:block;cursor:pointer;" onclick="window.openLightbox('${renderUrl}', ${allCardImagesJson})" title="Click to view full size" />
+                    <img src="${escapeHtml(renderUrl)}" referrerpolicy="no-referrer" alt="Scraped Photo ${index + 1}" style="height:100px;max-width:180px;object-fit:cover;display:block;cursor:pointer;" onclick="window.openLightbox('${escapeHtml(renderUrl)}', ${allCardImagesJson})" title="Click to view full size" />
                   </div>
                 `;
               }).join('')}
@@ -359,9 +397,9 @@ const authed = providedKey === ADMIN_KEY;
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
             <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">ENTITY</div><div style="font-size:14px;color:var(--color-text-primary);font-weight:600;word-break:break-all;">${entityDisplay}</div></div>
-            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">TYPE</div><div style="font-size:13px;color:var(--color-text-secondary);">${r.entityType}</div></div>
+            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">TYPE</div><div style="font-size:13px;color:var(--color-text-secondary);">${escapeHtml(r.entityType)}</div></div>
             ${posterNameHtml}
-            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">INCIDENT DATE</div><div style="font-size:13px;color:var(--color-text-secondary);">${r.incidentDate}</div></div>
+            <div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">INCIDENT DATE</div><div style="font-size:13px;color:var(--color-text-secondary);">${escapeHtml(r.incidentDate)}</div></div>
             ${r.amountLost ? `<div><div style="font-size:11px;color:var(--color-text-muted);margin-bottom:3px;">AMOUNT LOST</div><div style="font-size:13px;color:var(--color-danger);font-weight:600;">৳${r.amountLost.toLocaleString()}</div></div>` : ''}
           </div>
           <div style="background:var(--color-surface);border-radius:8px;padding:14px;margin-bottom:12px;">
@@ -372,11 +410,11 @@ const authed = providedKey === ADMIN_KEY;
               const escapedFullText = encodeURIComponent(complaintContent);
               return isLong ? `
                 <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;white-space:pre-wrap;" data-full-text="${escapedFullText}" data-collapsed="true">
-                  <span class="complaint-span">${displayContent}</span>
+                  <span class="complaint-span">${escapeHtml(displayContent)}</span>
                   <button onclick="window.toggleComplaintExpand(this)" style="background:none;border:none;color:var(--color-accent);font-weight:600;padding:0;margin-left:6px;cursor:pointer;font-family:sans-serif;font-size:13px;text-decoration:underline;display:inline;">See More</button>
                 </div>
               ` : `
-                <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;white-space:pre-wrap;">${complaintContent}</div>
+                <div style="font-size:14px;color:var(--color-text-primary);line-height:1.6;white-space:pre-wrap;">${escapeHtml(complaintContent)}</div>
               `;
             })()}
           </div>
@@ -393,13 +431,14 @@ const authed = providedKey === ADMIN_KEY;
       if (action === 'delete' && !confirm('Are you sure you want to permanently delete this report? This will remove all associated records.')) {
         return;
       }
+      const activeKey = adminKey || sessionStorage.getItem('admin_secret_key') || '';
       const card = document.getElementById(`card-${reportId}`);
       if (card) card.style.opacity = '0.5';
       try {
         const res = await fetch('/api/admin/review', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: adminKey, reportId, action }),
+          body: JSON.stringify({ key: activeKey, reportId, action }),
         });
         const data = await res.json();
         if (data.ok) {
@@ -527,13 +566,14 @@ const authed = providedKey === ADMIN_KEY;
     }
 
     async function runAiRetry() {
+      const activeKey = adminKey || sessionStorage.getItem('admin_secret_key') || '';
       const btn = document.getElementById('run-ai-retry-btn');
       if (btn) {
         btn.disabled = true;
         btn.textContent = 'Processing...';
       }
       try {
-        const res = await fetch(`/api/admin/retry-ai-classification?key=${adminKey}`, {
+        const res = await fetch(`/api/admin/retry-ai-classification?key=${encodeURIComponent(activeKey)}`, {
           method: 'POST'
         });
         const data = await res.json();

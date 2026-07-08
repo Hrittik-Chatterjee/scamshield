@@ -51,6 +51,15 @@ export const GET: APIRoute = async ({ request }) => {
 
     const headers = new Headers();
     object.writeHttpMetadata(headers);
+    
+    // Security Guard: enforce content types to prevent HTML/SVG XSS execution
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const currentMime = headers.get('content-type');
+    if (!currentMime || !allowedMimeTypes.includes(currentMime)) {
+      headers.set('content-type', 'application/octet-stream');
+      headers.set('Content-Disposition', 'attachment; filename="evidence"');
+    }
+
     headers.set('etag', object.httpEtag);
     headers.set('Cache-Control', 'public, max-age=31536000');
 

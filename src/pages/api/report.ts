@@ -64,6 +64,9 @@ export const POST: APIRoute = async (context) => {
       errors.push('Evidence screenshot is required');
     if (evidenceFile && evidenceFile.size > 5 * 1024 * 1024)
       errors.push('Evidence file must be under 5MB');
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (evidenceFile && !allowedMimeTypes.includes(evidenceFile.type))
+      errors.push('Evidence must be a valid image file (JPEG, PNG, WEBP, or GIF)');
 
     if (errors.length > 0) {
       return new Response(JSON.stringify({ ok: false, errors }), {
