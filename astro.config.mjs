@@ -18,6 +18,7 @@ export default defineConfig({
       rolldownOptions: {}
     },
     server: {
+      allowedHosts: true,
       watch: {
         ignored: ['**/.wrangler/**']
       }

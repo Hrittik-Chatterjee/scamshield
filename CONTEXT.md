@@ -120,6 +120,8 @@ c:\projects\ScamShield\
             ├── report.ts         ← Report submission POST endpoint
             ├── search.ts         ← Search API endpoint (currently mock data)
             ├── scrape-ingest.ts  ← Extension scraped posts ingestion POST endpoint
+            ├── evidence.ts       ← R2 private bucket image delivery proxy
+            ├── whatsapp.ts       ← WhatsApp webhook GET handshake & POST message handler
             └── admin/
                 ├── queue.ts      ← Returns filtered pending reports queue
                 └── review.ts     ← Approve/reject action endpoint
@@ -216,6 +218,19 @@ c:\projects\ScamShield\
 
 ---
 
+### ✅ Phase 7 — WhatsApp Webhook Integration — COMPLETE
+- [x] Create D1 database table `whatsapp_chat_history` to store logs
+- [x] Implement API webhook at `src/pages/api/whatsapp.ts` with handshake & router
+- [x] Configure production secrets `WHATSAPP_TOKEN` and `WHATSAPP_VERIFY_TOKEN`
+- [x] Implement Edge Workers AI classification & Gemini/regex fallback chain
+- [x] Integrate Hybrid search (D1 direct SQL text match + Vectorize semantic fallback)
+- [x] Format matched reports dynamically using WhatsApp markdown formatting
+- [x] Implement direct clickable website search redirection links to `/search?q=query`
+- [x] Deployed permanent System User authentication token from Meta Business Suite
+
+
+---
+
 ## D1 Database Schema (Reference — Not Created Yet)
 
 ```sql
@@ -245,7 +260,17 @@ CREATE TABLE reports (
   status       TEXT DEFAULT 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED'
   reviewed_at  TEXT,
   created_at   TEXT
-);## Cloudflare Setup Checklist (User Must Do — Requires Their Account)
+);
+
+-- WhatsApp Chat History table
+CREATE TABLE whatsapp_chat_history (
+  id          TEXT PRIMARY KEY,
+  phone       TEXT NOT NULL,
+  role        TEXT NOT NULL,          -- 'user' or 'assistant'
+  content     TEXT NOT NULL,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX idx_whatsapp_phone ON whatsapp_chat_history(phone);## Cloudflare Setup Checklist (User Must Do — Requires Their Account)
 
 - [x] Create Cloudflare account at cloudflare.com
 - [x] Create D1 database named `scamshield-db`
@@ -261,6 +286,8 @@ CREATE TABLE reports (
   - [ ] `BING_SEARCH_KEY`
   - [ ] `GOOGLE_SAFE_BROWSING_KEY`
   - [ ] `URLSCAN_API_KEY`
+  - [x] `WHATSAPP_TOKEN` — Meta System User Access Token (permanent)
+  - [x] `WHATSAPP_VERIFY_TOKEN` — Webhook verify token (shared during verification)
 
 ---
 
@@ -303,7 +330,10 @@ npx astro dev --port 4321
 21. **Hybrid AI Architecture & RAG Conversational Agent** — Implemented a user-facing RAG chatbot page (`/chat`) that searches approved reports in Vectorize and guides users through submitting new reports conversationally. Rebuilt the background scraper classifier to run on Cloudflare Workers AI with Gemini fallback. Implemented IP rate limiting, input length caps, session limits, and strict R2 file upload validation.
 
 22. **Intelligent Edge RAG Routing & Fallback Overhaul** — Integrated Cloudflare Workers AI (`@cf/meta/llama-3.2-3b-instruct`) as a fast edge router to classify chatbot message intent (SEARCH, REPORT, CHAT) and extract search targets dynamically. This bypasses vector database searches for generic conversations (e.g. greetings, "I want to report") to keep the UI clean. Restructured the chatbot API fallback sequence to try Groq keys first, fallback to Gemini, and use Nara Router (filtering out unusable/down models dynamically) as a last-resort option.
+23. **WhatsApp Text-Only Hybrid Link Search** — WhatsApp outgoing messages are kept text-only and include a link redirecting the user to the website search page (`/search?q=query`) to view full report details and evidence images. This avoids delivery failures caused by sandbox/network constraints on media downloads, prevents R2 traffic costs, and avoids Meta media message fees.
+24. **WhatsApp System User Permanent Token** — Meta WhatsApp webhook calls are authenticated using a permanent System User Access Token generated via the Meta Business Suite, resolving the 24-hour expiration limitation of temporary developer tokens.
 
 ---
 
-*Last updated: Implemented edge-based Workers AI intent routing, semantic entity extraction, and optimized AI fallback sequence (Groq -> Gemini -> Nara).*
+*Last updated: Phase 7 complete — Integrated WhatsApp Business webhook with permanent System User authentication, hybrid search, intent classification, and text-only search redirections.*
+

@@ -44,3 +44,14 @@ CREATE TABLE IF NOT EXISTS ai_cache (
   risk_verdict    TEXT NOT NULL,
   analyzed_at     TEXT NOT NULL           -- ISO timestamp; expire after 24h
 );
+
+-- WhatsApp Chat History table
+CREATE TABLE IF NOT EXISTS whatsapp_chat_history (
+  id          TEXT PRIMARY KEY,
+  phone       TEXT NOT NULL,
+  role        TEXT NOT NULL, -- 'user' or 'assistant'
+  content     TEXT NOT NULL,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_phone ON whatsapp_chat_history(phone);
+

@@ -5,6 +5,14 @@ export const GET: APIRoute = async ({ request }) => {
   try {
     const url = new URL(request.url);
     const key = url.searchParams.get('key');
+    
+    // Log headers to inspect incoming requests (especially from Meta's scraper)
+    const headerObj: any = {};
+    request.headers.forEach((val, name) => {
+      headerObj[name] = val;
+    });
+    console.log(`[Evidence API GET] Key: "${key}", Headers:`, JSON.stringify(headerObj));
+
     if (!key) {
       return new Response(JSON.stringify({ error: 'Missing key parameter' }), {
         status: 400,
